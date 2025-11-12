@@ -2,6 +2,7 @@
 // Uses Firebase Realtime Database (free tier) and Nodemailer for OTP delivery
 
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
@@ -18,6 +19,10 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Serve frontend static files from the Tii/ directory
+// This makes files available at /Tii/<filename>
+app.use('/Tii', express.static(path.join(__dirname, 'Tii')));
 
 // ============================================
 // FIREBASE REALTIME DB SETUP (use admin SDK or REST)
