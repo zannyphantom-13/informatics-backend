@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Account - The Informatics Initiative</title>
+    <link rel="stylesheet" href="styles.css"> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src='user-loader.js'></script>
+</head>
+<body class="login-body">
+    <header>
+        <a href="index.html">
+        <div class="logo-container">
+            <svg class="logo-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <polygon points="50,5 90,30 90,70 50,95 10,70 10,30" fill="transparent" stroke="#2a6e62" stroke-width="5"/>
+                <circle cx="50" cy="50" r="10" fill="#2a6e62"/>
+                <path d="M50 5 L50 95 M10 30 L90 70 M10 70 L90 30" stroke="#2a6e62" stroke-width="2"/>
+            </svg>
+            <h1>THE INFORMATICS INITIATIVE</h1>
+        </div>
+        </a>
+        <nav class="main-nav">
+            <a href="curriculum.html">Curriculum</a>
+            <a href="lessons.html">Weekly Lessons</a>
+            <a href="portal.html">Student Portal</a>
+            <a href="feedback.html">Feedback</a>
+        </nav>
+        <a id="auth-button" href="login.html" class="login-btn">Login</a>
+    </header>
+
+    <main class="login-main">
+        <div class="login-container">
+            <h3><i class="fas fa-key"></i> Account Verification</h3>
+            
+            <p style="text-align: center; margin-bottom: 20px; color: #555; font-size: 14px;">
+                A six-digit code has been sent to the email address: 
+                <strong id="verification-email-display" style="color: #2a6e62;">[Loading Email...]</strong>
+            </p>
+            
+            <form id="otp-verification-form">
+                
+                <div class="form-group">
+                    <label for="otp_code"><i class="fas fa-shield-alt"></i> One-Time Code</label>
+                    <input type="text" id="otp_code" name="otp_code" placeholder="Enter 6-digit code" required 
+                                maxlength="6" style="text-align: center; font-size: 20px;">
+                </div>
+                
+                <div id="verification-error" style="color: red; margin-bottom: 15px; font-weight: bold;"></div>
+                
+                <button type="submit" class="submit-btn login-submit-btn">Verify Account</button>
+            </form>
+            
+            <div class="register-link" style="margin-top: 20px;">
+                <p>Didn't receive the code? 
+                    <button type="button" id="resend-otp-button" class="link-like-button">Resend Code</button>
+                </p>
+            </div>
+            
+        </div>
+    </main>
+
+    <footer>
+        <div class="copyright-bar">
+            <p>&copy; 2024 The Informatics Initiative. All rights reserved.</p>
+        </div>
+    </footer>
+    <script type="module">
+    import { handleOTPVerification, handleAuthButton } from './auth.js';
+    import { listenForOTP, stopListeningForOTP } from './firebase-config.js';
+    
+    handleAuthButton();
+    handleOTPVerification();
+    
+    // Real-time OTP listener
+    const email = localStorage.getItem('verificationEmail');
+    if (email) {
+      const otpInput = document.getElementById('otp_code');
+      const unsubscribe = listenForOTP(email, (otp) => {
+        // Auto-fill OTP when received
+        otpInput.value = otp;
+        // Optionally auto-submit
+        // document.getElementById('otp-verification-form').dispatchEvent(new Event('submit'));
+      });
+      
+      // Cleanup on page leave
+      window.addEventListener('beforeunload', () => stopListeningForOTP(unsubscribe));
+    }
+    </script>
+</body>
+</html>

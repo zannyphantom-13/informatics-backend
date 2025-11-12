@@ -1,0 +1,34 @@
+# render.yaml - Render Infrastructure as Code configuration
+# This file tells Render how to build and deploy your app
+
+services:
+  - type: web
+    name: informatics-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false # Set this in Render dashboard - DO NOT commit
+      - key: EMAIL_SERVICE
+        value: gmail
+      - key: EMAIL_USER
+        sync: false # Set in Render dashboard
+      - key: EMAIL_PASS
+        sync: false # Set in Render dashboard (Gmail App Password)
+      - key: ADMIN_EMAIL
+        sync: false # Set in Render dashboard
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false # Set in Render dashboard - paste full JSON
+      - key: FIREBASE_DATABASE_URL
+        sync: false # Set in Render dashboard - Firebase DB URL
+    healthCheckPath: /api/health
+    maxShutdownDelay: 30
+    buildFilter:
+      paths:
+        - package.json
+        - server.js

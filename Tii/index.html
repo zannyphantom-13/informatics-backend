@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Informatics Initiative</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="user-loader.js" defer></script>
+</head>
+<body>
+    <header>
+        <a href="index.html">
+            <div class="logo-container">
+                <svg class="logo-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="50,5 90,30 90,70 50,95 10,70 10,30" fill="transparent" stroke="#2a6e62" stroke-width="5"/>
+                    <circle cx="50" cy="50" r="10" fill="#2a6e62"/>
+                    <path d="M50 5 L50 95 M10 30 L90 70 M10 70 L90 30" stroke="#2a6e62" stroke-width="2"/>
+                </svg>
+                <h1>THE INFORMATICS INITIATIVE</h1>
+            </div>
+        </a>
+        <nav class="main-nav">
+            <a href="curriculum.html">Curriculum</a>
+            <a href="lessons.html">Weekly Lessons</a>
+            <a href="portal.html">Student Portal</a>
+            <a href="feedback.html">Feedback</a>
+        </nav>
+        <a id="auth-button" href="login.html" class="login-btn">Login</a>
+    </header>
+
+    <main>
+        <div class="hero">
+            <div class="hero-content">
+                <h2>Cultivating Knowledge.</h2>
+                <h2>Driving Discovery</h2>
+                <a href="curriculum.html" class="explore-btn">EXPLORE COURSE CATALOG</a>
+            </div>
+        </div>
+    </main>
+
+    <section class="advertisement-banner">
+        <div class="ad-carousel">
+            <div id="ad-slides-container">
+            </div>
+            
+            <button class="ad-nav-btn left-nav hidden" id="ad-prev-btn"><i class="fas fa-chevron-left"></i></button>
+            <button class="ad-nav-btn right-nav hidden" id="ad-next-btn"><i class="fas fa-chevron-right"></i></button>
+        </div>
+    </section>
+    
+    <footer>
+        <div class="subject-icons">
+            <div class="icon-item"><a href="computational-chemistry.html"><i class="fas fa-flask"></i><p>CHEMISTRY</p></a></div>
+            <div class="icon-item"><a href="bioinformatics.html"><i class="fas fa-dna"></i><p>BIOINFORMATICS</p></a></div>
+            <div class="icon-item"><a href="programming.html"><i class="fas fa-laptop-code"></i><p>CODING & AI</p></a></div>
+            <div class="icon-item"><a href="drug-discovery.html"><i class="fas fa-pills"></i><p>DRUG DISCOVERY</p></a></div>
+        </div>
+        <div class="copyright-bar">
+            <div class="social-links">
+                <a href="https://www.linkedin.com/company/informatics" target="_blank"><i class="fab fa-linkedin-in"></i></a>
+                <a href="https://www.twitter.com/informatics" target="_blank"><i class="fab fa-twitter"></i></a>
+                <a href="https://www.instagram.com/informatics" target="_blank"><i class="fab fa-instagram"></i></a>
+                <a href="https://www.youtube.com/informatics" target="_blank"><i class="fab fa-youtube"></i></a>
+                <a href="https://www.facebook.com/informatics" target="_blank"><i class="fab fa-facebook-f"></i></a>
+                <a href="https://www.tiktok.com/@informatics" target="_blank"><i class="fab fa-tiktok"></i></a>
+            </div>
+            <p>&copy; 2024 The Informatics Initiative. All rights reserved.</p>
+        </div>
+    </footer>
+    <script type="module">
+        import { handleAuthButton, updatePortalLink } from './auth.js';
+        handleAuthButton();
+        updatePortalLink();
+    </script>
+    <script type="module" src="ad-manager.js"></script> 
+</body>
+</html>
