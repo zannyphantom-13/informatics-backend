@@ -1,9 +1,9 @@
 // auth.js
 // Connects to Node.js backend with Firebase Realtime DB for persistent data and OTP delivery
 
-// API_URL: on localhost use http://localhost:3000
-// On Render: use your Render service URL (e.g., https://informatics-backend.onrender.com)
-const API_URL = process.env.API_URL || 'http://localhost:3000';
+// API_URL: prefer the current origin so the frontend calls the same host that served the page.
+// Falls back to localhost for local development.
+const API_URL = (typeof window !== 'undefined' && window.location && window.location.origin) || 'http://localhost:3000';
 
 let adminEmail = ''; // Variable to store the email after Step 1
 
