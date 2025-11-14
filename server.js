@@ -48,8 +48,10 @@ try {
   db = {
     ref: (path) => ({
       set: async (data) => { console.log(`Mock DB set: ${path}`, data); },
-      get: async () => ({ val: () => null }),
+      get: async () => ({ val: () => null, exists: () => false }),
       on: (event, callback) => { },
+      update: async (data) => { console.log(`Mock DB update: ${path}`, data); },
+      push: async () => ({ key: 'mock-key' }),
     }),
   };
 }
