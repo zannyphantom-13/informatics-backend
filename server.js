@@ -316,15 +316,56 @@ app.post('/send_admin_token', async (req, res) => {
       admin_token_expiry: tokenExpiry,
     });
 
-    // Send token via email (send to admin email from env)
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER,
-      subject: `Admin Access Request from ${email}`,
-      html: `<p>Admin token: <strong>${adminToken}</strong></p><p>User: ${email}</p>`,
-    });
+    // Log token generation
+    console.log("============================================================");
+    console.log("🔐 ADMIN TOKEN GENERATED");
+    console.log("============================================================");
+    console.log(`📧 User Email: ${email}`);
+    console.log(`🔑 Admin Token: ${adminToken}`);
+    console.log(`⏰ Token Expiry: ${new Date(tokenExpiry).toISOString()}`);
+    console.log(`⏳ Valid for: 10 minutes`);
+    console.log("============================================================");
 
-    res.json({ message: 'Admin token sent to admin email.' });
+    // Send token via SendGrid email
+    const msg = {
+      to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'admin@informatics-initiative.com',
+      from: process.env.EMAIL_USER || 'noreply@informatics-initiative.com',
+      subject: `🔐 Admin Access Request from ${email}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
+          <div style="background: white; padding: 30px; border-radius: 8px; max-width: 500px; margin: 0 auto;">
+            <h2 style="color: #2a6e62; text-align: center;">The Informatics Initiative</h2>
+            <p style="color: #333; font-size: 16px;">Admin Access Request</p>
+            <p style="color: #666;">A user is attempting to access the Admin Portal:</p>
+            <p><strong>User Email:</strong> ${email}</p>
+            <div style="background: #f0f0f0; border-left: 4px solid #2a6e62; padding: 15px; text-align: center; margin: 20px 0;">
+              <p style="margin: 0; color: #666;">Your Admin Token:</p>
+              <h1 style="color: #2a6e62; font-size: 36px; letter-spacing: 5px; margin: 10px 0;">${adminToken}</h1>
+            </div>
+            <p style="color: #666; font-size: 14px;">
+              This token expires in <strong>10 minutes</strong>. Do not share this token with anyone.
+            </p>
+            <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+            <p style="color: #999; font-size: 12px; text-align: center;">
+              If you didn't initiate this request, please ignore this email.
+            </p>
+          </div>
+        </div>
+      `,
+    };
+
+    if (process.env.SENDGRID_API_KEY) {
+      await sgMail.send(msg);
+      console.log(`✅ Admin token email sent to: ${msg.to}`);
+    } else {
+      console.warn(`⚠️ SENDGRID_API_KEY not configured. Token not emailed. Token: ${adminToken}`);
+    }
+
+    res.json({ 
+      message: 'Admin token sent to admin email.',
+      token: adminToken,
+      expires_at: new Date(tokenExpiry).toISOString()
+    });
   } catch (error) {
     console.error('Send admin token error:', error);
     res.status(500).json({ message: 'Server error.' });
