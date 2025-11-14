@@ -76,6 +76,21 @@ function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+// Helper function to safely check if snapshot exists
+function snapshotExists(snapshot) {
+  if (!snapshot) return false;
+  if (typeof snapshot.exists === 'function') return snapshot.exists();
+  if (typeof snapshot.exists === 'boolean') return snapshot.exists;
+  return snapshot.val() !== null && snapshot.val() !== undefined;
+}
+
+// Helper to safely get snapshot value
+function snapshotVal(snapshot) {
+  if (!snapshot) return null;
+  if (typeof snapshot.val === 'function') return snapshot.val();
+  return snapshot;
+}
+
 async function sendOTPEmail(email, otp) {
   try {
     const msg = {
@@ -158,7 +173,7 @@ app.post('/register', async (req, res) => {
 
     // Check if user exists
     const snapshot = await db.ref(`users/${email.replace(/\./g, '_')}`).get();
-    if (snapshot.exists()) {
+    if (snapshotExists(snapshot)) {
       return res.status(400).json({ message: 'Email already registered.' });
     }
 
@@ -210,11 +225,11 @@ app.post('/login', async (req, res) => {
 
     // Fetch user
     const snapshot = await db.ref(`users/${email.replace(/\./g, '_')}`).get();
-    if (!snapshot.exists()) {
+    if (!snapshotExists(snapshot)) {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
-    const user = snapshot.val();
+    const user = snapshotVal(snapshot);
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -255,11 +270,11 @@ app.post('/admin_login_check', async (req, res) => {
 
     // Fetch user
     const snapshot = await db.ref(`users/${email.replace(/\./g, '_')}`).get();
-    if (!snapshot.exists()) {
+    if (!snapshotExists(snapshot)) {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
-    const user = snapshot.val();
+    const user = snapshotVal(snapshot);
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -308,7 +323,7 @@ app.post('/send_admin_token', async (req, res) => {
 
     // Fetch user
     const snapshot = await db.ref(`users/${email.replace(/\./g, '_')}`).get();
-    if (!snapshot.exists()) {
+    if (!snapshotExists(snapshot)) {
       return res.status(404).json({ message: 'User not found.' });
     }
 
@@ -402,11 +417,11 @@ app.post('/admin_login', async (req, res) => {
 
     // Fetch user
     const snapshot = await db.ref(`users/${email.replace(/\./g, '_')}`).get();
-    if (!snapshot.exists()) {
+    if (!snapshotExists(snapshot)) {
       return res.status(401).json({ message: 'User not found.' });
     }
 
-    const user = snapshot.val();
+    const user = snapshotVal(snapshot);
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -471,9 +486,9 @@ app.get('/api/profile', async (req, res) => {
 
     const email = payload.email;
     const snapshot = await db.ref(`users/${email.replace(/\./g, '_')}`).get();
-    if (!snapshot.exists()) return res.status(404).json({ message: 'User not found.' });
+    if (!snapshotExists(snapshot)) return res.status(404).json({ message: 'User not found.' });
 
-    const user = snapshot.val();
+    const user = snapshotVal(snapshot);
     // Do not return password in profile response
     if (user.password) delete user.password;
 
