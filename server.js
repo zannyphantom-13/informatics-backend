@@ -498,6 +498,55 @@ app.get('/api/profile', async (req, res) => {
     return res.status(500).json({ message: 'Server error.' });
   }
 });
+
+// ============================================
+// RESET PASSWORD ENDPOINT
+// ============================================
+app.post('/reset-password', async (req, res) => {
+  try {
+    const { email, current_password, new_password } = req.body;
+
+    if (!email || !current_password || !new_password) {
+      return res.status(400).json({ message: 'Missing required fields.' });
+    }
+
+    // Validate new password
+    if (new_password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters.' });
+    }
+
+    // Fetch user
+    const snapshot = await db.ref(`users/${email.replace(/\./g, '_')}`).get();
+    if (!snapshotExists(snapshot)) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const user = snapshotVal(snapshot);
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(current_password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Current password is incorrect.' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+
+    // Update password in Firebase
+    await db.ref(`users/${email.replace(/\./g, '_')}`).update({
+      password: hashedPassword,
+      password_updated_at: new Date().toISOString(),
+    });
+
+    console.log(`✅ Password reset successful for user: ${email}`);
+
+    return res.status(200).json({ message: 'Password updated successfully.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({ message: 'Server error during password reset.' });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
