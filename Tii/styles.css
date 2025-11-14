@@ -811,11 +811,11 @@ main {
 .remember-forgot input[type="checkbox"] {
     margin-right: 5px;
 }
-.forgot-password {
+.reset-password {
     color: #555;
     transition: color 0.3s;
 }
-.forgot-password:hover {
+.reset-password:hover {
     color: #2a6e62;
     text-decoration: underline;
 }

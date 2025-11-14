@@ -103,11 +103,6 @@
             <div class="bio-box" style="border: 1px solid #ddd; padding: 15px; border-radius: 5px; background-color: #f9f9f9;">
                 <p id="display_bio"></p>
             </div>
-
-            <h4 style="margin-top: 25px;"><i class="fas fa-shield-alt"></i> Tokens</h4>
-            <div id="tokens-container" style="border: 1px solid #ddd; padding: 15px; border-radius: 5px; background-color: #fff;">
-                <!-- tokens will be injected here -->
-            </div>
             
             <div style="margin-top: 30px; text-align: center;">
                 <a href="change.html" class="submit-btn">
@@ -138,69 +133,41 @@
     handleProfileFetch(); // Retrieves and sets the user's name
     </script>
     <script>
-       // In your auth.js or profile.html script block
+       // Load and display student profile data from /api/profile
 
 async function loadProfileData() {
-    // 1. Retrieve the authentication token (assuming it's stored in localStorage)
     const token = localStorage.getItem('authToken'); 
     const profileError = document.getElementById('profile-error');
 
     if (!token) {
-        // Handle case where user is not logged in
         if (profileError) profileError.textContent = "You must be logged in to view this page.";
-        window.location.href = 'login.html'; // Redirect to login
+        window.location.href = 'login.html';
         return;
     }
 
     try {
-        // 2. Make a request to the server, including the token in the header
         const response = await fetch('/api/profile', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                // This is the crucial step: linking the request to the specific user via the token
                 'Authorization': `Bearer ${token}` 
             }
         });
 
         if (!response.ok) {
-            // Server responds with an error (e.g., 401 Unauthorized if token is invalid)
             throw new Error('Failed to load profile data.');
         }
 
         const userData = await response.json(); 
 
-        // 3. Update the DOM elements with the received user data
+        // Update DOM with user profile data
         const profile = userData.user || {};
-        document.getElementById('display_full_name').textContent = profile.full_name || '';
-        document.getElementById('display_email').textContent = profile.email || '';
-        document.getElementById('display_country').textContent = profile.country || '';
+        document.getElementById('display_full_name').textContent = profile.full_name || 'Not provided';
+        document.getElementById('display_email').textContent = profile.email || 'Not provided';
+        document.getElementById('display_country').textContent = profile.country || 'Not provided';
         document.getElementById('display_bio').textContent = profile.bio || 'No bio provided.';
-        document.getElementById('display_phone_number').textContent = profile.phone || '';
-        document.getElementById('display_dob').textContent = profile.dob || '';
-
-        // Render tokens (if any)
-        const tokensContainer = document.getElementById('tokens-container');
-        tokensContainer.innerHTML = '';
-        const tokens = profile.tokens || {};
-        const tokenKeys = Object.keys(tokens || {});
-        if (tokenKeys.length === 0) {
-            tokensContainer.innerHTML = '<p style="color:#666;">No tokens found for this account.</p>';
-        } else {
-            const list = document.createElement('div');
-            list.style.display = 'grid';
-            list.style.gap = '10px';
-            tokenKeys.reverse().forEach(k => {
-                const t = tokens[k];
-                const item = document.createElement('div');
-                item.style.padding = '10px';
-                item.style.border = '1px solid #eee';
-                item.style.borderRadius = '6px';
-                item.innerHTML = `<strong>Token:</strong> <code style="font-family:monospace;">${t.token}</code> &nbsp; <strong>Expires:</strong> ${new Date(t.expires_at).toLocaleString()}`;
-                list.appendChild(item);
-            });
-            tokensContainer.appendChild(list);
-        }
+        document.getElementById('display_phone_number').textContent = profile.phone || 'Not provided';
+        document.getElementById('display_dob').textContent = profile.dob || 'Not provided';
         
     } catch (error) {
         console.error("Error loading profile:", error);
@@ -208,7 +175,7 @@ async function loadProfileData() {
     }
 }
 
-// Call the function when the page loads (or within DOMContentLoaded)
+// Load profile data when page loads
 loadProfileData();
     </script>
 </body>
