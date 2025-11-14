@@ -42,16 +42,35 @@ try {
   db = admin.database();
   console.log('✅ Firebase connected');
 } catch (err) {
-  console.warn('⚠️ Firebase not configured. Using mock DB. For production, set FIREBASE_SERVICE_ACCOUNT and FIREBASE_DATABASE_URL.');
-  // Fallback mock DB (in-memory; data will be lost on restart)
-  // For real persistence, configure Firebase
+  console.warn('⚠️ Firebase not configured. Using mock DB (in-memory storage). For production, set FIREBASE_SERVICE_ACCOUNT and FIREBASE_DATABASE_URL.');
+  
+  // In-memory mock database that persists during the session
+  const mockStore = {};
+  
   db = {
     ref: (path) => ({
-      set: async (data) => { console.log(`Mock DB set: ${path}`, data); },
-      get: async () => ({ val: () => null, exists: () => false }),
+      set: async (data) => {
+        mockStore[path] = data;
+        console.log(`✅ Mock DB set: ${path}`, data);
+        return { key: path };
+      },
+      get: async () => {
+        const data = mockStore[path];
+        return {
+          val: () => data || null,
+          exists: () => data !== undefined && data !== null,
+        };
+      },
       on: (event, callback) => { },
-      update: async (data) => { console.log(`Mock DB update: ${path}`, data); },
+      update: async (updates) => {
+        if (mockStore[path]) {
+          mockStore[path] = { ...mockStore[path], ...updates };
+          console.log(`✅ Mock DB update: ${path}`, mockStore[path]);
+        }
+      },
       push: async () => ({ key: 'mock-key' }),
+    }),
+  };
     }),
   };
 }
@@ -165,9 +184,9 @@ app.get('/api/debug/otp/:email', async (req, res) => {
 // ============================================
 app.post('/register', async (req, res) => {
   try {
-    const { full_name, email, password } = req.body;
+    const { full_name, email, password, phone_number, date_of_birth, country, bio, security_question, security_answer } = req.body;
 
-    if (!full_name || !email || !password) {
+    if (!full_name || !email || !password || !security_question || !security_answer) {
       return res.status(400).json({ message: 'Missing required fields.' });
     }
 
@@ -185,6 +204,12 @@ app.post('/register', async (req, res) => {
       full_name,
       email,
       password: hashedPassword,
+      phone_number: phone_number || '',
+      date_of_birth: date_of_birth || '',
+      country: country || '',
+      bio: bio || '',
+      security_question,
+      security_answer: security_answer.toLowerCase().trim(),
       role: 'student',
       verified: true,
       // initialize tokens container so frontend can read it reliably
@@ -500,13 +525,41 @@ app.get('/api/profile', async (req, res) => {
 });
 
 // ============================================
+// SECURITY QUESTION ENDPOINT
+// ============================================
+app.post('/api/security-question', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required.' });
+    }
+
+    // Fetch user
+    const snapshot = await db.ref(`users/${email.replace(/\./g, '_')}`).get();
+    if (!snapshotExists(snapshot)) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const user = snapshotVal(snapshot);
+
+    res.status(200).json({
+      security_question: user.security_question || 'Security question not set.',
+    });
+  } catch (error) {
+    console.error('Security question fetch error:', error);
+    return res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// ============================================
 // RESET PASSWORD ENDPOINT
 // ============================================
 app.post('/reset-password', async (req, res) => {
   try {
-    const { email, current_password, new_password } = req.body;
+    const { email, security_answer, new_password } = req.body;
 
-    if (!email || !current_password || !new_password) {
+    if (!email || !security_answer || !new_password) {
       return res.status(400).json({ message: 'Missing required fields.' });
     }
 
@@ -523,10 +576,12 @@ app.post('/reset-password', async (req, res) => {
 
     const user = snapshotVal(snapshot);
 
-    // Verify current password
-    const isPasswordValid = await bcrypt.compare(current_password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Current password is incorrect.' });
+    // Verify security answer
+    const userAnswer = user.security_answer.toLowerCase().trim();
+    const providedAnswer = security_answer.toLowerCase().trim();
+    
+    if (userAnswer !== providedAnswer) {
+      return res.status(401).json({ message: 'Security answer is incorrect.' });
     }
 
     // Hash new password
