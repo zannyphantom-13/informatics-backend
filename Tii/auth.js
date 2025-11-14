@@ -119,6 +119,7 @@ export function handleRegistration() {
                 localStorage.setItem('authToken', result.authToken);
                 localStorage.setItem('userName', result.full_name);
                 localStorage.setItem('userRole', result.role);
+                    localStorage.setItem('userEmail', result.email);
                 handleAuthButton();
                 window.location.href = 'portal.html';
             } else {
@@ -159,6 +160,7 @@ export function handleLogin() {
                 localStorage.setItem('authToken', result.authToken);
                 localStorage.setItem('userName', result.full_name);
                 localStorage.setItem('userRole', result.role);
+                localStorage.setItem('userEmail', result.email);
 
                 handleAuthButton();
 
@@ -288,6 +290,7 @@ async function handleAdminLoginStep1(event) {
             localStorage.setItem('authToken', result.authToken);
             localStorage.setItem('userName', result.full_name);
             localStorage.setItem('userRole', result.role);
+            localStorage.setItem('userEmail', result.email);
             window.location.href = 'admin-portal.html';
         } else if (response.status === 403 && result.action === 'require_token') {
             // Case 2: Credentials correct, but token required (e.g., student trying to become admin)
@@ -342,6 +345,7 @@ async function handleAdminTokenVerification(event) {
             localStorage.setItem('authToken', result.authToken);
             localStorage.setItem('userName', result.full_name);
             localStorage.setItem('userRole', result.role);
+            localStorage.setItem('userEmail', adminEmail);
             window.location.href = 'admin-portal.html';
         } else {
             // Token verification failure

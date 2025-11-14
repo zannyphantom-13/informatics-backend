@@ -170,6 +170,8 @@ app.post('/register', async (req, res) => {
       password: hashedPassword,
       role: 'student',
       verified: true,
+      // initialize tokens container so frontend can read it reliably
+      tokens: {},
       created_at: new Date().toISOString(),
     });
 
@@ -230,6 +232,7 @@ app.post('/login', async (req, res) => {
       authToken: token,
       full_name: user.full_name,
       role: user.role,
+      email: user.email,
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -275,6 +278,7 @@ app.post('/admin_login_check', async (req, res) => {
         authToken: token,
         full_name: user.full_name,
         role: 'admin',
+        email: user.email,
       });
     }
 
@@ -315,6 +319,17 @@ app.post('/send_admin_token', async (req, res) => {
       admin_token: adminToken,
       admin_token_expiry: tokenExpiry,
     });
+
+    // Also persist the token under the user's tokens list so tokens can be listed per email
+    try {
+      await db.ref(`users/${email.replace(/\./g, '_')}/tokens`).push({
+        token: adminToken,
+        expires_at: tokenExpiry,
+        created_at: Date.now(),
+      });
+    } catch (e) {
+      console.warn('Failed to persist admin token under user tokens:', e && e.message ? e.message : e);
+    }
 
     // Log token generation
     console.log("============================================================");
@@ -425,6 +440,7 @@ app.post('/admin_login', async (req, res) => {
       authToken: jwtToken,
       full_name: user.full_name,
       role: 'admin',
+      email: user.email,
     });
   } catch (error) {
     console.error('Admin login error:', error);
@@ -435,6 +451,36 @@ app.post('/admin_login', async (req, res) => {
 // ============================================
 // START SERVER
 // ============================================
+// Profile endpoint: returns user profile (requires Authorization: Bearer <token>)
+app.get('/api/profile', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    if (!authHeader) return res.status(401).json({ message: 'Authorization header required.' });
+
+    const token = authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Bearer token required.' });
+
+    let payload;
+    try {
+      payload = jwt.verify(token, JWT_SECRET);
+    } catch (verifyErr) {
+      return res.status(401).json({ message: 'Invalid or expired token.' });
+    }
+
+    const email = payload.email;
+    const snapshot = await db.ref(`users/${email.replace(/\./g, '_')}`).get();
+    if (!snapshot.exists()) return res.status(404).json({ message: 'User not found.' });
+
+    const user = snapshot.val();
+    // Do not return password in profile response
+    if (user.password) delete user.password;
+
+    return res.json({ user });
+  } catch (error) {
+    console.error('Profile fetch error:', error);
+    return res.status(500).json({ message: 'Server error.' });
+  }
+});
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });

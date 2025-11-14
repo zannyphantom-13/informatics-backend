@@ -56,6 +56,13 @@
                     <button class="edit-btn"><i class="fas fa-edit"></i> Edit Profile</button>
                 </div>
 
+                <div class="settings-section" style="margin-top:20px;">
+                    <h3>Recent Tokens</h3>
+                    <div id="admin-tokens-container" style="border:1px solid #eee; padding:12px; border-radius:8px; background:#fff;">
+                        <p style="color:#666;">Loading tokens...</p>
+                    </div>
+                </div>
+
                 <div class="settings-section">
                     <h3>Security Settings</h3>
                     <button class="action-btn"><i class="fas fa-key"></i> Change Password</button>
@@ -95,6 +102,59 @@
         if (welcomeText) {
             welcomeText.textContent = `👋 Welcome, ${adminName.split(' ')[0]}!`;
         }
+
+        // Fetch and display tokens associated with this admin's email
+        async function loadAdminTokens() {
+            const token = localStorage.getItem('authToken');
+            const container = document.getElementById('admin-tokens-container');
+            if (!token) {
+                container.innerHTML = '<p style="color:#e74c3c;">Not authenticated.</p>';
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/profile', {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!resp.ok) {
+                    container.innerHTML = '<p style="color:#666;">Unable to load tokens.</p>';
+                    return;
+                }
+
+                const data = await resp.json();
+                const profile = data.user || {};
+                const tokens = profile.tokens || {};
+                const keys = Object.keys(tokens);
+                if (keys.length === 0) {
+                    container.innerHTML = '<p style="color:#666;">No tokens found for this account.</p>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                const list = document.createElement('div');
+                list.style.display = 'grid';
+                list.style.gap = '10px';
+
+                keys.reverse().forEach(k => {
+                    const t = tokens[k];
+                    const item = document.createElement('div');
+                    item.style.padding = '8px';
+                    item.style.border = '1px solid #f0f0f0';
+                    item.style.borderRadius = '6px';
+                    item.innerHTML = `<strong>Token:</strong> <code style="font-family:monospace">${t.token}</code> &nbsp; <strong>Expires:</strong> ${new Date(t.expires_at).toLocaleString()}`;
+                    list.appendChild(item);
+                });
+
+                container.appendChild(list);
+            } catch (err) {
+                console.error('Failed to load admin tokens:', err);
+                container.innerHTML = '<p style="color:#666;">Error loading tokens.</p>';
+            }
+        }
+
+        loadAdminTokens();
     </script>
 </body>
 </html>
