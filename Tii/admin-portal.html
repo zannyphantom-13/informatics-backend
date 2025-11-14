@@ -238,6 +238,22 @@
                 Manage students, content, and system configuration.
             </p>
 
+            <!-- Admin Token Display Section -->
+            <div id="admin-token-section" style="display: none; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <h3 style="margin-top: 0; color: #856404;">🔐 Active Admin Token</h3>
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; font-family: monospace; font-size: 1.1em; word-break: break-all; margin-bottom: 10px;">
+                            <strong id="admin-token-display">Loading...</strong>
+                        </div>
+                        <div style="color: #856404; font-size: 0.95em;">
+                            ⏰ Expires in: <strong id="admin-token-countdown">--:--:--</strong>
+                        </div>
+                    </div>
+                    <button id="admin-token-close-btn" onclick="closeAdminTokenSection()" style="background-color: #ffc107; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; align-self: flex-start;">✕ Close</button>
+                </div>
+            </div>
+
             <h3>Overview Statistics</h3>
             <div class="tii-ad-stats-grid">
                 <div class="stat-card"><i class="fas fa-user-graduate"></i><h4>1,245</h4><p>Total Students</p></div>
@@ -320,6 +336,57 @@
         function logout(url) {
             console.log('Logging out and navigating to:', url);
         }
+
+        // --- Admin Token Display and Countdown Logic ---
+        function displayAdminToken() {
+            const adminToken = localStorage.getItem('adminToken');
+            const adminTokenExpires = localStorage.getItem('adminTokenExpires');
+            
+            if (adminToken && adminTokenExpires) {
+                const tokenSection = document.getElementById('admin-token-section');
+                const tokenDisplay = document.getElementById('admin-token-display');
+                const tokenCountdown = document.getElementById('admin-token-countdown');
+                
+                tokenDisplay.textContent = adminToken;
+                tokenSection.style.display = 'block';
+                
+                // Start countdown timer
+                const expiresTime = new Date(adminTokenExpires).getTime();
+                
+                const countdownInterval = setInterval(() => {
+                    const now = new Date().getTime();
+                    const distance = expiresTime - now;
+                    
+                    if (distance < 0) {
+                        // Token has expired
+                        clearInterval(countdownInterval);
+                        tokenCountdown.textContent = 'EXPIRED';
+                        tokenCountdown.style.color = '#dc3545';
+                        localStorage.removeItem('adminToken');
+                        localStorage.removeItem('adminTokenExpires');
+                        setTimeout(() => {
+                            tokenSection.style.display = 'none';
+                        }, 3000);
+                        return;
+                    }
+                    
+                    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    
+                    tokenCountdown.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                }, 1000);
+            }
+        }
+
+        function closeAdminTokenSection() {
+            const tokenSection = document.getElementById('admin-token-section');
+            tokenSection.style.display = 'none';
+            // Don't clear localStorage so it persists if needed
+        }
+
+        // Display token when page loads
+        window.addEventListener('load', displayAdminToken);
     </script>
     
     </body>

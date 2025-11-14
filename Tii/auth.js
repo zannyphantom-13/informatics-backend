@@ -235,13 +235,19 @@ export async function sendAdminToken(email) {
 
         const data = await response.json();
         if (response.ok) {
+            // Store the token and expiration time for display in admin portal
+            localStorage.setItem('adminToken', data.token);
+            localStorage.setItem('adminTokenExpires', data.expires_at);
             displayAdminError(`✅ ${data.message}`);
+            return { token: data.token, expires_at: data.expires_at };
         } else {
             displayAdminError(`❌ ${data.message}`);
+            return null;
         }
     } catch (error) {
         console.error('Error sending admin token:', error);
         displayAdminError('Failed to send token.');
+        return null;
     }
 }
 

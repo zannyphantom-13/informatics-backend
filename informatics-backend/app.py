@@ -162,11 +162,13 @@ def send_admin_token():
     user_email = data.get('email') # The email of the user attempting admin login
     
     if not user_email:
+        print("❌ ERROR: Missing email for token generation.")
         return jsonify({"message": "Missing email for token generation."}), 400
 
     # 1. Basic Check: User must exist
     user = User.query.filter_by(email=user_email).first()
     if not user:
+        print(f"❌ ERROR: User not found for email: {user_email}")
         return jsonify({"message": "User not found."}), 404
         
     try:
@@ -182,7 +184,17 @@ def send_admin_token():
         db.session.add(new_token)
         db.session.commit()
 
-        # 5. CRITICAL: Send the token to the hardcoded recipient (for security)
+        # 5. Log the token generation
+        print("=" * 60)
+        print("🔐 ADMIN TOKEN GENERATED")
+        print("=" * 60)
+        print(f"📧 User Email: {user_email}")
+        print(f"🔑 Admin Token: {admin_token}")
+        print(f"⏰ Expires At: {expiration_time} UTC")
+        print(f"⏳ Valid for: 10 minutes")
+        print("=" * 60)
+
+        # 6. CRITICAL: Send the token to the hardcoded recipient (for security)
         email_body = (
             f"An attempt was made by user {user_email} to access the Admin Portal.\n\n"
             f"Your one-time Admin Token for this attempt is: {admin_token}\n\n"
@@ -195,12 +207,14 @@ def send_admin_token():
         )
         
         return jsonify({
-            "message": f"Token successfully generated and sent to the primary Admin email: {ADMIN_RECIPIENT_EMAIL}"
+            "message": f"Token successfully generated and sent to the primary Admin email: {ADMIN_RECIPIENT_EMAIL}",
+            "token": admin_token,
+            "expires_at": expiration_time.isoformat()
         }), 200
 
     except Exception as e:
         db.session.rollback()
-        print(f"Error during admin token send: {e}")
+        print(f"❌ ERROR during admin token send: {e}")
         return jsonify({"message": "Internal server error during token generation."}), 500
 
 
