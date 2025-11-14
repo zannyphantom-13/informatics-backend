@@ -163,127 +163,33 @@ app.post('/register', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Generate OTP
-    const otp = generateOTP();
-    const otpExpiry = Date.now() + OTP_EXPIRY;
-
-    // Store user with OTP in Firebase
+    // Store user in Firebase (verified immediately)
     await db.ref(`users/${email.replace(/\./g, '_')}`).set({
       full_name,
       email,
       password: hashedPassword,
       role: 'student',
-      verified: false,
-      otp,
-      otp_expiry: otpExpiry,
-      created_at: new Date().toISOString(),
-    });
-
-    // Send OTP via email (don't fail registration if email fails)
-    await sendOTPEmail(email, otp);
-
-    res.status(201).json({
-      message: 'Registration successful. Check your email for OTP.',
-      email,
-      otp_debug: otp, // For testing purposes; remove in production
-    });
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ message: 'Server error during registration.' });
-  }
-});
-
-// ============================================
-// OTP VERIFICATION ENDPOINT
-// ============================================
-app.post('/verify-otp', async (req, res) => {
-  try {
-    const { email, otp_code } = req.body;
-
-    if (!email || !otp_code) {
-      return res.status(400).json({ message: 'Email and OTP required.' });
-    }
-
-    // Fetch user from Firebase
-    const snapshot = await db.ref(`users/${email.replace(/\./g, '_')}`).get();
-    if (!snapshot.exists()) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    const user = snapshot.val();
-
-    // Check OTP expiry
-    if (Date.now() > user.otp_expiry) {
-      return res.status(400).json({ message: 'OTP has expired. Please request a new one.' });
-    }
-
-    // Verify OTP
-    if (user.otp !== otp_code) {
-      return res.status(400).json({ message: 'Invalid OTP.' });
-    }
-
-    // Mark user as verified
-    await db.ref(`users/${email.replace(/\./g, '_')}`).update({
       verified: true,
-      otp: null,
-      otp_expiry: null,
+      created_at: new Date().toISOString(),
     });
 
     // Generate JWT token
     const token = jwt.sign(
-      { email, role: user.role },
+      { email, role: 'student' },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    res.json({
-      message: 'Email verified successfully.',
+    res.status(201).json({
+      message: 'Registration successful.',
       authToken: token,
-      full_name: user.full_name,
-      role: user.role,
+      full_name,
+      role: 'student',
+      email,
     });
   } catch (error) {
-    console.error('OTP verification error:', error);
-    res.status(500).json({ message: 'Server error during verification.' });
-  }
-});
-
-// ============================================
-// RESEND OTP ENDPOINT
-// ============================================
-app.post('/resend-otp', async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ message: 'Email required.' });
-    }
-
-    // Fetch user
-    const snapshot = await db.ref(`users/${email.replace(/\./g, '_')}`).get();
-    if (!snapshot.exists()) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    const user = snapshot.val();
-
-    // Generate new OTP
-    const otp = generateOTP();
-    const otpExpiry = Date.now() + OTP_EXPIRY;
-
-    // Update user with new OTP
-    await db.ref(`users/${email.replace(/\./g, '_')}`).update({
-      otp,
-      otp_expiry: otpExpiry,
-    });
-
-    // Send new OTP (don't fail if email fails)
-    await sendOTPEmail(email, otp);
-
-    res.json({ message: 'New OTP sent to your email.', otp_debug: otp });
-  } catch (error) {
-    console.error('Resend OTP error:', error);
-    res.status(500).json({ message: 'Server error while resending OTP.' });
+    console.error('Registration error:', error);
+    res.status(500).json({ message: 'Server error during registration.' });
   }
 });
 
@@ -310,25 +216,6 @@ app.post('/login', async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Invalid credentials.' });
-    }
-
-    // Check if verified
-    if (!user.verified) {
-      // Generate OTP for verification
-      const otp = generateOTP();
-      const otpExpiry = Date.now() + OTP_EXPIRY;
-
-      await db.ref(`users/${email.replace(/\./g, '_')}`).update({
-        otp,
-        otp_expiry: otpExpiry,
-      });
-
-      await sendOTPEmail(email, otp);
-
-      return res.status(403).json({
-        message: 'Please verify your email first.',
-        action: 'redirect_to_otp',
-      });
     }
 
     // Generate JWT token

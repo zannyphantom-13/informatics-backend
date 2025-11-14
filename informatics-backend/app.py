@@ -28,7 +28,6 @@ class User(db.Model):
     full_name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    is_verified = db.Column(db.Boolean, default=False, nullable=False) 
     role = db.Column(db.String(20), default='student', nullable=False) 
 
     def set_password(self, password):
@@ -36,10 +35,10 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-class OTP(db.Model):
+class AdminToken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_email = db.Column(db.String(100), db.ForeignKey('user.email'), nullable=False)
-    code = db.Column(db.String(6), nullable=False)
+    user_email = db.Column(db.String(100), nullable=False)
+    token = db.Column(db.String(6), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False)
 
@@ -55,7 +54,8 @@ def send_email(email, subject, body):
     print(f"Body: {body}")
     print("-" * 65)
 
-def generate_otp():
+def generate_admin_token():
+    """Generate a 6-digit token for admin verification."""
     return str(random.randint(100000, 999999))
 
 # --- ROUTES: STUDENT/GENERAL AUTH ---
@@ -76,31 +76,19 @@ def register():
     try:
         # Automatically assign the 'admin' role to the very first user who registers
         if User.query.count() == 0:
-            new_user = User(full_name=full_name, email=email, is_verified=False, role='admin')
+            new_user = User(full_name=full_name, email=email, role='admin')
         else:
-            new_user = User(full_name=full_name, email=email, is_verified=False, role='student')
+            new_user = User(full_name=full_name, email=email, role='student')
             
         new_user.set_password(password)
         db.session.add(new_user)
         db.session.commit()
 
-        # Generate and send OTP
-        OTP.query.filter_by(user_email=email).delete() 
-        otp_code = generate_otp()
-        expiration_time = datetime.utcnow() + timedelta(minutes=5)
-        new_otp = OTP(user_email=email, code=otp_code, expires_at=expiration_time)
-        db.session.add(new_otp)
-        db.session.commit()
-
-        # Send OTP to the student's email
-        send_email(
-            email, 
-            subject="Your 6-Digit Verification Code", 
-            body=f"Your 6-digit verification code is: {otp_code}"
-        )
-        
         return jsonify({
-            'message': 'Registration successful. Verification code sent.',
+            'message': 'Registration successful.',
+            'authToken': 'temp_secure_token',
+            'full_name': new_user.full_name,
+            'role': new_user.role,
             'email': email
         }), 201
 
@@ -108,74 +96,6 @@ def register():
         db.session.rollback()
         print(f"Error during registration: {e}")
         return jsonify({'message': 'Internal server error during registration.'}), 500
-
-
-@app.route('/resend-otp', methods=['POST'])
-def resend_otp():
-    data = request.get_json()
-    email = data.get('email')
-
-    user = User.query.filter_by(email=email).first()
-
-    if not user or user.is_verified:
-        return jsonify({'message': 'Account not found or already verified.'}), 400
-
-    try:
-        OTP.query.filter_by(user_email=email).delete()
-
-        otp_code = generate_otp()
-        expiration_time = datetime.utcnow() + timedelta(minutes=5)
-        new_otp = OTP(user_email=email, code=otp_code, expires_at=expiration_time)
-        
-        db.session.add(new_otp)
-        db.session.commit()
-
-        # Send OTP to the student's email
-        send_email(
-            email, 
-            subject="Your 6-Digit Verification Code", 
-            body=f"Your 6-digit verification code is: {otp_code}"
-        )
-
-        return jsonify({'message': 'New verification code sent.'}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error during resend: {e}")
-        return jsonify({'message': 'Internal server error during resend.'}), 500
-
-
-@app.route('/verify-otp', methods=['POST'])
-def verify_otp():
-    data = request.get_json()
-    email = data.get('email')
-    otp_code = data.get('otp_code')
-
-    if not all([email, otp_code]):
-        return jsonify({'message': 'Missing email or OTP code'}), 400
-    
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return jsonify({'message': 'User not found.'}), 404
-
-    otp_entry = OTP.query.filter_by(user_email=email, code=otp_code) \
-                             .filter(OTP.expires_at > datetime.utcnow()) \
-                             .order_by(OTP.created_at.desc()) \
-                             .first()
-
-    if otp_entry:
-        user.is_verified = True
-        db.session.delete(otp_entry)
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'Verification successful. Redirecting to portal...',
-            'authToken': 'temp_secure_token', 
-            'full_name': user.full_name,
-            'role': user.role
-        }), 200
-    else:
-        return jsonify({'message': 'Invalid or expired verification code.'}), 401
 
 
 @app.route('/login', methods=['POST'])
@@ -186,16 +106,8 @@ def login():
     user = User.query.filter_by(email=email).first()
 
     if user and user.check_password(password):
-        if not user.is_verified:
-            return jsonify({
-                'message': 'Account not verified. Redirecting to verification page.',
-                'action': 'redirect_to_otp', 
-                'email': email 
-            }), 403
-        
-        # === FIX: Add 'status': 'success' to match auth.js ===
         return jsonify({
-            'status': 'success', # <--- THIS LINE IS THE FIX
+            'status': 'success',
             'message': 'Login successful.',
             'authToken': 'temp_secure_token', 
             'full_name': user.full_name, 
@@ -259,21 +171,21 @@ def send_admin_token():
         
     try:
         # 2. Clear any old tokens for this user
-        OTP.query.filter_by(user_email=user_email).delete() 
+        AdminToken.query.filter_by(user_email=user_email).delete() 
 
         # 3. Generate the token and set expiration (10 minutes)
-        token = generate_otp()
+        admin_token = generate_admin_token()
         expiration_time = datetime.utcnow() + timedelta(minutes=10) 
 
         # 4. Store the token associated with the user trying to log in
-        new_otp = OTP(user_email=user_email, code=token, expires_at=expiration_time)
-        db.session.add(new_otp)
+        new_token = AdminToken(user_email=user_email, token=admin_token, expires_at=expiration_time)
+        db.session.add(new_token)
         db.session.commit()
 
         # 5. CRITICAL: Send the token to the hardcoded recipient (for security)
         email_body = (
             f"An attempt was made by user {user_email} to access the Admin Portal.\n\n"
-            f"Your one-time Admin Token for this attempt is: {token}\n\n"
+            f"Your one-time Admin Token for this attempt is: {admin_token}\n\n"
             f"This token is valid for 10 minutes."
         )
         send_email(
@@ -300,7 +212,7 @@ def admin_login():
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
-    token = data.get('token')
+    admin_token = data.get('token')
 
     # 1. Re-authenticate User Credentials (important for final step)
     user = User.query.filter_by(email=email).first()
@@ -319,20 +231,20 @@ def admin_login():
 
 
     # 2. Token Verification (Required for role upgrade)
-    if not token:
+    if not admin_token:
         return jsonify({"message": "Admin token is required for verification."}), 403
 
     # Check for valid, unexpired token associated with this user's email
-    otp_entry = OTP.query.filter_by(user_email=email, code=token) \
-                             .filter(OTP.expires_at > datetime.utcnow()) \
-                             .order_by(OTP.created_at.desc()) \
+    token_entry = AdminToken.query.filter_by(user_email=email, token=admin_token) \
+                             .filter(AdminToken.expires_at > datetime.utcnow()) \
+                             .order_by(AdminToken.created_at.desc()) \
                              .first()
 
-    if otp_entry:
+    if token_entry:
         try:
             # Token is valid! Upgrade user role and clean up token.
             user.role = 'admin' 
-            db.session.delete(otp_entry)
+            db.session.delete(token_entry)
             db.session.commit()
             
             return jsonify({
