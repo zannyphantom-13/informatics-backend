@@ -1,1 +1,17 @@
-{}
+{
+  "users/testuser@example_com": {
+    "full_name": "Test User",
+    "email": "testuser@example.com",
+    "password": "$2b$10$fYNKNRKaPs/Ou8h2SQQajeHRG16ZCPf9zg.YhssWmIDrj9WdbuueG",
+    "phone_number": "+1234567890",
+    "date_of_birth": "1990-05-15",
+    "country": "USA",
+    "bio": "Test bio",
+    "security_question": "What is your pet name?",
+    "security_answer": "fluffy",
+    "role": "student",
+    "verified": true,
+    "tokens": {},
+    "created_at": "2025-11-15T10:14:13.632Z"
+  }
+}

@@ -31,6 +31,8 @@ app.use('/Tii', express.static(path.join(__dirname, 'Tii')));
 const admin = require('firebase-admin');
 
 let db;
+let mockStore = {}; // For file-based DB fallback (module-scoped so debug endpoint can access it)
+
 try {
   if (!admin.apps.length) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
@@ -49,7 +51,6 @@ try {
   const dbPath = path.join(__dirname, 'database.json');
   
   // Load database from file on startup
-  let mockStore = {};
   function loadDatabase() {
     try {
       if (fs.existsSync(dbPath)) {
@@ -68,8 +69,11 @@ try {
   // Save database to file
   function saveDatabase() {
     try {
-      fs.writeFileSync(dbPath, JSON.stringify(mockStore, null, 2), 'utf-8');
-      console.log('💾 Database saved to file');
+      const jsonString = JSON.stringify(mockStore, null, 2);
+      console.log(`📝 Writing ${jsonString.length} bytes to ${dbPath}`);
+      fs.writeFileSync(dbPath, jsonString, 'utf-8');
+      const stats = fs.statSync(dbPath);
+      console.log(`💾 Database saved to file (${stats.size} bytes). Content keys: ${Object.keys(mockStore).join(', ')}`);
     } catch (e) {
       console.error('Error saving database:', e);
     }
@@ -209,6 +213,17 @@ app.get('/api/debug/otp/:email', async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Server error.' });
   }
+});
+
+// ============================================
+// DEBUG ENDPOINT: DUMP MOCKSTORE (for testing only - REMOVE IN PRODUCTION)
+// ============================================
+app.get('/api/debug/mockstore', (req, res) => {
+  res.json({
+    message: 'In-memory mockStore contents (file-based DB fallback)',
+    mockStore,
+    totalKeys: Object.keys(mockStore).length,
+  });
 });
 
 // ============================================
