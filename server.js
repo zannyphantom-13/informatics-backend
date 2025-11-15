@@ -34,6 +34,9 @@ let db;
 let mockStore = {}; // For file-based DB fallback (module-scoped so debug endpoint can access it)
 let usingFirebase = false;
 let usingFileBased = false;
+let usingSQLite = false;
+let sqlite3 = null;
+let sqliteDb = null;
 
 try {
   if (!admin.apps.length) {
@@ -51,75 +54,147 @@ try {
   console.log('✅ Firebase connected successfully');
 } catch (err) {
   console.warn('⚠️ Firebase not configured:', err.message);
-  console.warn('📁 Using file-based persistent DB instead (ephemeral on Render - data will NOT persist across restarts)');
-  console.warn('📝 To fix: Set FIREBASE_SERVICE_ACCOUNT and FIREBASE_DATABASE_URL environment variables');
+  console.warn('📝 Attempting SQLite fallback for persistent storage...');
   
-  usingFileBased = true;
-  
-  // File-based persistent database (survives server restarts ONLY on local dev)
-  const fs = require('fs');
-  const dbPath = path.join(__dirname, 'database.json');
-  
-  // Load database from file on startup
-  function loadDatabase() {
-    try {
-      if (fs.existsSync(dbPath)) {
-        const data = fs.readFileSync(dbPath, 'utf-8');
-        mockStore = JSON.parse(data);
-        console.log(`✅ Loaded ${Object.keys(mockStore).length} records from database.json`);
-      } else {
-        mockStore = {};
-        saveDatabase();
-      }
-    } catch (e) {
-      console.error('Error loading database:', e);
-      mockStore = {};
-    }
-  }
-  
-  // Save database to file
-  function saveDatabase() {
-    try {
-      const jsonString = JSON.stringify(mockStore, null, 2);
-      console.log(`📝 Writing ${jsonString.length} bytes to ${dbPath}`);
-      fs.writeFileSync(dbPath, jsonString, 'utf-8');
-      const stats = fs.statSync(dbPath);
-      console.log(`💾 Database saved to file (${stats.size} bytes). Content keys: ${Object.keys(mockStore).join(', ')}`);
-    } catch (e) {
-      console.error('Error saving database:', e);
-    }
-  }
-  
-  // Initialize database
-  loadDatabase();
-  console.log('✅ File-based database initialized at:', dbPath);
-  
-  db = {
-    ref: (path) => ({
-      set: async (data) => {
-        mockStore[path] = data;
-        saveDatabase();
-        console.log(`✅ Mock DB set: ${path}`);
-        return { key: path };
-      },
-      get: async () => {
-        const data = mockStore[path];
-        return {
-          val: () => data || null,
-          exists: () => data !== undefined && data !== null,
-        };
-      },
-      on: (event, callback) => { },
-      update: async (updates) => {
-        if (mockStore[path]) {
-          mockStore[path] = { ...mockStore[path], ...updates };
+  // Try SQLite3 for better persistence on Render
+  try {
+    sqlite3 = require('better-sqlite3');
+    const dbPath = path.join(__dirname, 'data.db');
+    sqliteDb = new sqlite3(dbPath);
+    usingSQLite = true;
+    
+    // Create tables if they don't exist
+    sqliteDb.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        key TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    
+    console.log('✅ SQLite database initialized for persistent storage');
+    
+    db = {
+      ref: (refPath) => ({
+        set: async (data) => {
+          try {
+            const stmt = sqliteDb.prepare('INSERT OR REPLACE INTO users (key, data, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)');
+            stmt.run(refPath, JSON.stringify(data));
+            console.log(`✅ SQLite: saved ${refPath}`);
+            return { key: refPath };
+          } catch (e) {
+            console.error(`❌ SQLite save error for ${refPath}:`, e.message);
+            throw e;
+          }
+        },
+        get: async () => {
+          try {
+            const stmt = sqliteDb.prepare('SELECT data FROM users WHERE key = ?');
+            const row = stmt.get(refPath);
+            const val = row ? JSON.parse(row.data) : null;
+            return {
+              val: () => val,
+              exists: () => val !== null,
+            };
+          } catch (e) {
+            console.error(`❌ SQLite get error for ${refPath}:`, e.message);
+            return {
+              val: () => null,
+              exists: () => false,
+            };
+          }
+        },
+        on: (event, callback) => { },
+        update: async (updates) => {
+          try {
+            const stmt = sqliteDb.prepare('SELECT data FROM users WHERE key = ?');
+            const row = stmt.get(refPath);
+            if (row) {
+              const current = JSON.parse(row.data);
+              const updated = { ...current, ...updates };
+              const updateStmt = sqliteDb.prepare('UPDATE users SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?');
+              updateStmt.run(JSON.stringify(updated), refPath);
+              console.log(`✅ SQLite: updated ${refPath}`);
+            }
+          } catch (e) {
+            console.error(`❌ SQLite update error for ${refPath}:`, e.message);
+          }
+        },
+        push: async () => ({ key: 'mock-key' }),
+      }),
+    };
+  } catch (sqliteErr) {
+    console.warn('⚠️ SQLite not available:', sqliteErr.message);
+    console.warn('📁 Falling back to file-based storage (ephemeral on Render)');
+    
+    usingFileBased = true;
+    
+    // File-based persistent database (survives server restarts ONLY on local dev)
+    const fs = require('fs');
+    const dbPath = path.join(__dirname, 'database.json');
+    
+    // Load database from file on startup
+    function loadDatabase() {
+      try {
+        if (fs.existsSync(dbPath)) {
+          const data = fs.readFileSync(dbPath, 'utf-8');
+          mockStore = JSON.parse(data);
+          console.log(`✅ Loaded ${Object.keys(mockStore).length} records from database.json`);
+        } else {
+          mockStore = {};
           saveDatabase();
-          console.log(`✅ Mock DB update: ${path}`);
         }
-      },
-      push: async () => ({ key: 'mock-key' }),
-    }),
-  };
+      } catch (e) {
+        console.error('Error loading database:', e);
+        mockStore = {};
+      }
+    }
+    
+    // Save database to file
+    function saveDatabase() {
+      try {
+        const jsonString = JSON.stringify(mockStore, null, 2);
+        console.log(`📝 Writing ${jsonString.length} bytes to ${dbPath}`);
+        fs.writeFileSync(dbPath, jsonString, 'utf-8');
+        const stats = fs.statSync(dbPath);
+        console.log(`💾 Database saved to file (${stats.size} bytes). Content keys: ${Object.keys(mockStore).join(', ')}`);
+      } catch (e) {
+        console.error('Error saving database:', e);
+      }
+    }
+    
+    // Initialize database
+    loadDatabase();
+    console.log('✅ File-based database initialized at:', dbPath);
+    
+    db = {
+      ref: (refPath) => ({
+        set: async (data) => {
+          mockStore[refPath] = data;
+          saveDatabase();
+          console.log(`✅ Mock DB set: ${refPath}`);
+          return { key: refPath };
+        },
+        get: async () => {
+          const data = mockStore[refPath];
+          return {
+            val: () => data || null,
+            exists: () => data !== undefined && data !== null,
+          };
+        },
+        on: (event, callback) => { },
+        update: async (updates) => {
+          if (mockStore[refPath]) {
+            mockStore[refPath] = { ...mockStore[refPath], ...updates };
+            saveDatabase();
+            console.log(`✅ Mock DB update: ${refPath}`);
+          }
+        },
+        push: async () => ({ key: 'mock-key' }),
+      }),
+    };
+  }
 }
 
 // ============================================
@@ -208,13 +283,16 @@ app.get('/api/health', (req, res) => {
 app.get('/api/debug/persistence-status', (req, res) => {
   res.json({
     usingFirebase,
+    usingSQLite,
     usingFileBased,
     environment: process.env.NODE_ENV || 'development',
     message: usingFirebase 
       ? '✅ Using Firebase - data persists across restarts'
-      : usingFileBased 
-        ? '⚠️ Using file-based DB - data will NOT persist on Render (ephemeral storage)'
-        : '❌ No database configured',
+      : usingSQLite
+        ? '✅ Using SQLite - data persists across restarts'
+        : usingFileBased 
+          ? '⚠️ Using file-based DB - data will NOT persist on Render (ephemeral storage)'
+          : '❌ No database configured',
     firebaseConfigured: !!process.env.FIREBASE_SERVICE_ACCOUNT && !!process.env.FIREBASE_DATABASE_URL,
     mockStoreSize: Object.keys(mockStore).length,
     totalRecords: Object.keys(mockStore).length,
