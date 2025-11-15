@@ -35,6 +35,29 @@
             padding: 20px 0; 
             overflow-y: auto; /* Allows sidebar to scroll if navigation is long */
             min-height: 100%; /* Ensures sidebar takes up full height of main */
+            transition: width 0.2s ease, padding 0.2s ease;
+        }
+
+        /* Collapsed sidebar (icons-only) */
+        .tii-ad-admin-sidebar.collapsed {
+            width: 64px;
+            padding: 10px 0;
+        }
+
+        /* Hide link text when collapsed */
+        .tii-ad-admin-sidebar.collapsed .tii-ad-admin-nav-links a span {
+            display: none;
+        }
+
+        .tii-ad-admin-sidebar.collapsed .tii-ad-admin-nav-links a {
+            justify-content: center;
+            padding: 12px 0;
+        }
+
+        /* Make submenu icons centered when collapsed */
+        .tii-ad-admin-sidebar.collapsed .tii-ad-submenu a {
+            padding-left: 0;
+            text-align: center;
         }
         
         /* NEW: Main Dashboard Content Area */
@@ -358,12 +381,15 @@
         <button id="mobile-sidebar-toggle"></button>
         
         <div class="tii-ad-admin-sidebar" id="admin-sidebar">
-            <h3 id="tii-ad-admin-welcome-text" style="padding: 0 20px; color: white;">👋 Welcome!</h3>
+            <div class="tii-ad-sidebar-top">
+                <button id="sidebar-collapse-toggle" aria-label="Collapse menu" title="Collapse menu">«</button>
+                <h3 id="tii-ad-admin-welcome-text" style="padding: 0 12px; color: white; margin: 0;">👋 Welcome!</h3>
+            </div>
             
             <div class="tii-ad-admin-sidebar-nav">
                 <h3>Admin Tools</h3>
                 <ul class="tii-ad-admin-nav-links">
-                    <li><a href="user.html"><i class="fas fa-users"></i> Manage Users</a></li>
+                    <li><a href="user.html"><i class="fas fa-users"></i><span> Manage Users</span></a></li>
                     
                     <li class="tii-ad-has-submenu">
                         <a href="#edit-curriculum" class="tii-ad-submenu-toggle">
@@ -371,12 +397,12 @@
                             <i class="fas fa-chevron-down tii-ad-submenu-icon"></i>
                         </a>
                         <ul class="tii-ad-submenu">
-                            <li><a href="upload-course.html"><i class="fas fa-plus-circle"></i> Add New Course</a></li>
-                            <li><a href="delete-course.html"><i class="fas fa-trash-alt"></i> Delete Existing Course</a></li>
+                            <li><a href="upload-course.html"><i class="fas fa-plus-circle"></i><span> Add New Course</span></a></li>
+                            <li><a href="delete-course.html"><i class="fas fa-trash-alt"></i><span> Delete Existing Course</span></a></li>
                         </ul>
                     </li>
                     
-                    <li><a href="feedback-review"><i class="fas fa-comment-dots"></i> Review Feedback</a></li>
+                    <li><a href="feedback-review"><i class="fas fa-comment-dots"></i><span> Review Feedback</span></a></li>
                     
                     <li class="tii-ad-has-submenu">
                         <a href="#ad-management" class="tii-ad-submenu-toggle">
@@ -651,45 +677,95 @@
         // Display token when page loads
         window.addEventListener('load', displayAdminToken);
 
-        // --- MOBILE SIDEBAR TOGGLE ---
+        // --- MOBILE SIDEBAR TOGGLE + COLLAPSE ---
         let mobileSetupDone = false;
-        
+
+        function applySidebarCollapsedState() {
+            const sidebar = document.getElementById('admin-sidebar');
+            const collapseBtn = document.getElementById('sidebar-collapse-toggle');
+            const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+            const windowWidth = window.innerWidth;
+
+            // Do not keep collapsed state on small screens
+            if (windowWidth <= 768) {
+                sidebar.classList.remove('collapsed');
+                if (collapseBtn) collapseBtn.style.display = 'none';
+                return;
+            }
+
+            if (collapsed) {
+                sidebar.classList.add('collapsed');
+                if (collapseBtn) collapseBtn.textContent = '»';
+            } else {
+                sidebar.classList.remove('collapsed');
+                if (collapseBtn) collapseBtn.textContent = '«';
+            }
+            if (collapseBtn) collapseBtn.style.display = 'inline-block';
+        }
+
+        function toggleSidebarCollapsed() {
+            const sidebar = document.getElementById('admin-sidebar');
+            const collapseBtn = document.getElementById('sidebar-collapse-toggle');
+            const isCollapsed = sidebar.classList.toggle('collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
+            if (collapseBtn) collapseBtn.textContent = isCollapsed ? '»' : '«';
+        }
+
         function setupMobileSidebar() {
             // Prevent duplicate event listeners
             if (mobileSetupDone) return;
             mobileSetupDone = true;
-            
+
             const toggleBtn = document.getElementById('mobile-sidebar-toggle');
             const sidebar = document.getElementById('admin-sidebar');
-            const windowWidth = window.innerWidth;
+            const collapseBtn = document.getElementById('sidebar-collapse-toggle');
 
-            // Show toggle button on mobile
-            if (windowWidth <= 768) {
-                toggleBtn.style.display = 'block';
-                toggleBtn.textContent = '☰ Menu';
-            } else {
-                toggleBtn.style.display = 'none';
-                sidebar.classList.remove('mobile-active');
+            function refreshDisplay() {
+                const windowWidth = window.innerWidth;
+                // Mobile toggle
+                if (windowWidth <= 768) {
+                    toggleBtn.style.display = 'block';
+                    toggleBtn.textContent = '☰ Menu';
+                    if (collapseBtn) collapseBtn.style.display = 'none';
+                    sidebar.classList.remove('collapsed');
+                } else {
+                    toggleBtn.style.display = 'none';
+                    sidebar.classList.remove('mobile-active');
+                    // Apply persisted collapsed state
+                    applySidebarCollapsedState();
+                }
             }
 
-            // Toggle sidebar on button click
+            // Initial display setup and on resize
+            refreshDisplay();
+            window.addEventListener('resize', refreshDisplay);
+
+            // Toggle sidebar on mobile button click
             toggleBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 sidebar.classList.toggle('mobile-active');
                 toggleBtn.textContent = sidebar.classList.contains('mobile-active') ? '✕ Close' : '☰ Menu';
             });
 
-            // Close sidebar when a link is clicked
+            // Collapse button
+            if (collapseBtn) {
+                collapseBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleSidebarCollapsed();
+                });
+            }
+
+            // Close sidebar when a link is clicked (mobile)
             sidebar.querySelectorAll('a').forEach(link => {
                 link.addEventListener('click', () => {
-                    if (windowWidth <= 768) {
+                    if (window.innerWidth <= 768) {
                         sidebar.classList.remove('mobile-active');
                         toggleBtn.textContent = '☰ Menu';
                     }
                 });
             });
-            
-            // Close sidebar when clicking outside
+
+            // Close sidebar when clicking outside (mobile)
             document.addEventListener('click', (e) => {
                 if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target) && sidebar.classList.contains('mobile-active')) {
                     sidebar.classList.remove('mobile-active');
@@ -699,7 +775,10 @@
         }
 
         // Setup mobile sidebar on load
-        window.addEventListener('load', setupMobileSidebar);
+        window.addEventListener('load', () => {
+            applySidebarCollapsedState();
+            setupMobileSidebar();
+        });
     </script>
     
     </body>
