@@ -356,14 +356,18 @@
             <!-- Admin Token Display Section -->
             <div id="admin-token-section" style="display: none; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div>
+                    <div style="flex-grow: 1;">
                         <h3 style="margin-top: 0; color: #856404;">🔐 Active Admin Token</h3>
+                        <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #ffc107;">
+                            <strong style="color: #495057;">Email:</strong> <span id="admin-token-email" style="color: #856404; font-weight: bold;">Loading...</span>
+                        </div>
                         <div style="background-color: white; padding: 15px; border-radius: 5px; font-family: monospace; font-size: 1.1em; word-break: break-all; margin-bottom: 10px;">
                             <strong id="admin-token-display">Loading...</strong>
                         </div>
                         <div style="color: #856404; font-size: 0.95em;">
                             ⏰ Expires in: <strong id="admin-token-countdown">--:--:--</strong>
                         </div>
+                        <button id="admin-token-resend-btn" onclick="resendAdminToken()" style="background-color: #ffc107; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px; font-size: 0.9em;">🔄 Resend Token</button>
                     </div>
                     <button id="admin-token-close-btn" onclick="closeAdminTokenSection()" style="background-color: #ffc107; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; align-self: flex-start;">✕ Close</button>
                 </div>
@@ -452,52 +456,148 @@
             console.log('Logging out and navigating to:', url);
         }
 
-        // --- Admin Token Display and Countdown Logic ---
-        function displayAdminToken() {
-            const adminToken = localStorage.getItem('adminToken');
-            const adminTokenExpires = localStorage.getItem('adminTokenExpires');
-            
-            if (adminToken && adminTokenExpires) {
-                const tokenSection = document.getElementById('admin-token-section');
-                const tokenDisplay = document.getElementById('admin-token-display');
-                const tokenCountdown = document.getElementById('admin-token-countdown');
-                
-                tokenDisplay.textContent = adminToken;
-                tokenSection.style.display = 'block';
-                
-                // Start countdown timer
-                const expiresTime = new Date(adminTokenExpires).getTime();
-                
-                const countdownInterval = setInterval(() => {
-                    const now = new Date().getTime();
-                    const distance = expiresTime - now;
-                    
-                    if (distance < 0) {
-                        // Token has expired
-                        clearInterval(countdownInterval);
-                        tokenCountdown.textContent = 'EXPIRED';
-                        tokenCountdown.style.color = '#dc3545';
+        // --- Admin Token Display and Countdown Logic with Real-time Polling ---
+        let adminTokenPollingInterval = null;
+        let adminTokenCountdownInterval = null;
+
+        function fetchAdminToken(email) {
+            fetch('/api/admin-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.admin_token && data.admin_token_expiry && !data.is_expired) {
+                        const tokenDisplay = document.getElementById('admin-token-display');
+                        const tokenEmail = document.getElementById('admin-token-email');
+                        const tokenCountdown = document.getElementById('admin-token-countdown');
+                        const tokenSection = document.getElementById('admin-token-section');
+                        
+                        tokenDisplay.textContent = data.admin_token;
+                        tokenEmail.textContent = data.email;
+                        tokenSection.style.display = 'block';
+                        
+                        // Store in localStorage for reference
+                        localStorage.setItem('adminToken', data.admin_token);
+                        localStorage.setItem('adminTokenExpires', data.admin_token_expiry);
+                        localStorage.setItem('adminTokenEmail', email);
+                        
+                        startCountdownTimer(new Date(data.admin_token_expiry).getTime(), tokenCountdown);
+                    } else if (data.is_expired) {
+                        document.getElementById('admin-token-countdown').textContent = 'EXPIRED';
+                        document.getElementById('admin-token-countdown').style.color = '#dc3545';
                         localStorage.removeItem('adminToken');
                         localStorage.removeItem('adminTokenExpires');
+                        localStorage.removeItem('adminTokenEmail');
                         setTimeout(() => {
-                            tokenSection.style.display = 'none';
+                            document.getElementById('admin-token-section').style.display = 'none';
                         }, 3000);
-                        return;
                     }
-                    
-                    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-                    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                    
-                    tokenCountdown.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-                }, 1000);
+                })
+                .catch(error => {
+                    console.warn('Error fetching admin token:', error);
+                });
+        }
+
+        function startCountdownTimer(expiresTime, countdownElement) {
+            // Clear any existing countdown interval
+            if (adminTokenCountdownInterval) {
+                clearInterval(adminTokenCountdownInterval);
             }
+            
+            adminTokenCountdownInterval = setInterval(() => {
+                const now = new Date().getTime();
+                const distance = expiresTime - now;
+                
+                if (distance < 0) {
+                    // Token has expired
+                    clearInterval(adminTokenCountdownInterval);
+                    countdownElement.textContent = 'EXPIRED';
+                    countdownElement.style.color = '#dc3545';
+                    localStorage.removeItem('adminToken');
+                    localStorage.removeItem('adminTokenExpires');
+                    localStorage.removeItem('adminTokenEmail');
+                    setTimeout(() => {
+                        document.getElementById('admin-token-section').style.display = 'none';
+                    }, 3000);
+                    return;
+                }
+                
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                
+                countdownElement.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                countdownElement.style.color = distance < 60000 ? '#dc3545' : '#856404'; // Red if less than 1 minute
+            }, 1000);
+        }
+
+        function displayAdminToken() {
+            const adminTokenEmail = localStorage.getItem('adminTokenEmail');
+            
+            if (adminTokenEmail) {
+                // Fetch fresh token from server to ensure we have the latest
+                fetchAdminToken(adminTokenEmail);
+                
+                // Poll for updates every 5 seconds (in case it was resent)
+                if (adminTokenPollingInterval) {
+                    clearInterval(adminTokenPollingInterval);
+                }
+                adminTokenPollingInterval = setInterval(() => {
+                    fetchAdminToken(adminTokenEmail);
+                }, 5000);
+            }
+        }
+
+        function resendAdminToken() {
+            const email = localStorage.getItem('adminTokenEmail');
+            if (!email) {
+                alert('Email not found. Please log in again.');
+                return;
+            }
+
+            // Disable button during request
+            const resendBtn = document.getElementById('admin-token-resend-btn');
+            resendBtn.disabled = true;
+            resendBtn.textContent = '⏳ Sending...';
+
+            fetch('/send_admin_token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.token || data.admin_token) {
+                    // Immediately fetch and display the new token
+                    setTimeout(() => {
+                        fetchAdminToken(email);
+                    }, 500);
+                    alert('✅ New admin token sent! This portal will update automatically in a moment.');
+                } else {
+                    alert('❌ Error: ' + (data.message || 'Failed to resend token'));
+                }
+            })
+            .catch(error => {
+                console.error('Error resending token:', error);
+                alert('❌ Error resending token. Check console for details.');
+            })
+            .finally(() => {
+                // Re-enable button
+                resendBtn.disabled = false;
+                resendBtn.textContent = '🔄 Resend Token';
+            });
         }
 
         function closeAdminTokenSection() {
             const tokenSection = document.getElementById('admin-token-section');
             tokenSection.style.display = 'none';
-            // Don't clear localStorage so it persists if needed
+            if (adminTokenPollingInterval) {
+                clearInterval(adminTokenPollingInterval);
+            }
+            if (adminTokenCountdownInterval) {
+                clearInterval(adminTokenCountdownInterval);
+            }
         }
 
         // Display token when page loads

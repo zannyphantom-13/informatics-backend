@@ -44,9 +44,23 @@ try {
     if (Object.keys(serviceAccount).length === 0) {
       throw new Error('FIREBASE_SERVICE_ACCOUNT is empty or not set');
     }
+    // Normalize FIREBASE_DATABASE_URL: strip any child path so it points to the DB root
+    let firebaseDbUrl = process.env.FIREBASE_DATABASE_URL || '';
+    if (firebaseDbUrl) {
+      try {
+        const parsed = new URL(firebaseDbUrl);
+        if (parsed.pathname && parsed.pathname !== '/') {
+          console.warn('⚠️ FIREBASE_DATABASE_URL contains a child path — stripping to root for admin SDK.');
+          firebaseDbUrl = `${parsed.protocol}//${parsed.host}`;
+        }
+      } catch (e) {
+        console.warn('⚠️ Unable to parse FIREBASE_DATABASE_URL:', e.message);
+      }
+    }
+
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
-      databaseURL: process.env.FIREBASE_DATABASE_URL,
+      databaseURL: firebaseDbUrl,
     });
   }
   db = admin.database();
@@ -211,7 +225,7 @@ if (process.env.SENDGRID_API_KEY) {
 // UTILITIES
 // ============================================
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const OTP_EXPIRY = 10 * 60 * 1000; // 10 minutes
+const OTP_EXPIRY = 3 * 60 * 1000; // 3 minutes
 
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -332,6 +346,48 @@ app.get('/api/debug/mockstore', (req, res) => {
     mockStore,
     totalKeys: Object.keys(mockStore).length,
   });
+});
+
+// ============================================
+// GET ADMIN TOKEN ENDPOINT (for real-time display)
+// ============================================
+app.post('/api/admin-token', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required.' });
+    }
+
+    // Fetch user
+    const snapshot = await db.ref(`users/${email.replace(/\./g, '_')}`).get();
+    if (!snapshotExists(snapshot)) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const user = snapshotVal(snapshot);
+
+    // Return current admin token and expiry if available
+    if (user.admin_token && user.admin_token_expiry) {
+      const expiryTime = user.admin_token_expiry;
+      const now = Date.now();
+      const remainingMs = expiryTime - now;
+      const isExpired = remainingMs <= 0;
+
+      return res.json({
+        email: user.email,
+        admin_token: user.admin_token,
+        admin_token_expiry: new Date(expiryTime).toISOString(),
+        remaining_seconds: Math.ceil(remainingMs / 1000),
+        is_expired: isExpired,
+      });
+    } else {
+      return res.status(404).json({ message: 'No active admin token. Request a new one.' });
+    }
+  } catch (error) {
+    console.error('Get admin token error:', error);
+    res.status(500).json({ message: 'Server error.' });
+  }
 });
 
 // ============================================
@@ -587,6 +643,46 @@ app.post('/send_admin_token', async (req, res) => {
     });
   } catch (error) {
     console.error('Send admin token error:', error);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// ============================================
+// GET CURRENT ADMIN TOKEN (for real-time display)
+// ============================================
+app.get('/api/admin_token/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email required.' });
+    }
+
+    // Fetch user
+    const snapshot = await db.ref(`users/${email.replace(/\./g, '_')}`).get();
+    if (!snapshotExists(snapshot)) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const user = snapshotVal(snapshot);
+
+    // Check if token exists and is not expired
+    if (!user.admin_token) {
+      return res.status(404).json({ message: 'No admin token has been generated.' });
+    }
+
+    if (Date.now() > user.admin_token_expiry) {
+      return res.status(400).json({ message: 'Admin token has expired. Request a new one.' });
+    }
+
+    res.json({
+      email,
+      token: user.admin_token,
+      expires_at: new Date(user.admin_token_expiry).toISOString(),
+      expires_in_seconds: Math.max(0, Math.floor((user.admin_token_expiry - Date.now()) / 1000)),
+    });
+  } catch (error) {
+    console.error('Get admin token error:', error);
     res.status(500).json({ message: 'Server error.' });
   }
 });
