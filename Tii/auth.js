@@ -7,6 +7,28 @@ const API_URL = (typeof window !== 'undefined' && window.location && window.loca
 
 let adminEmail = ''; // Variable to store the email after Step 1
 
+// Helper to show an error message, scroll it into view and focus so the user notices it
+function showError(element, message) {
+    if (!element) return;
+    element.textContent = message || element.textContent || '';
+    element.style.display = 'block';
+    // Make focusable so screen-readers and keyboard users land on it
+    if (!element.hasAttribute('tabindex')) {
+        element.setAttribute('tabindex', '-1');
+    }
+    try {
+        element.focus();
+    } catch (e) { /* ignore if focus fails */ }
+    try { element.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { }
+}
+
+function hideError(element) {
+    if (!element) return;
+    element.textContent = '';
+    element.style.display = 'none';
+    if (element.hasAttribute('tabindex')) element.removeAttribute('tabindex');
+}
+
 // Timer configuration for token resend
 const RESEND_TIMEOUT_SECONDS = 60;
 let resendTimerInterval = null;
@@ -86,7 +108,7 @@ export function handleRegistration() {
         const passwordErrorDiv = document.getElementById('password-match-error');
         const errorElement = document.getElementById('registration-error');
 
-        if (errorElement) errorElement.textContent = '';
+    if (errorElement) hideError(errorElement);
 
         if (password !== confirmPassword) {
             passwordErrorDiv.style.display = 'block';
@@ -103,12 +125,19 @@ export function handleRegistration() {
         const security_answer = form['security_answer'].value;
 
         if (!terms) {
-            alert("You must agree to the Terms of Service.");
+            // Use inline error element when possible
+            if (errorElement) {
+                showError(errorElement, 'You must agree to the Terms of Service.');
+            } else {
+                alert('You must agree to the Terms of Service.');
+            }
             return;
         }
 
         if (!security_question || !security_answer) {
-            if (errorElement) errorElement.textContent = 'Security question and answer are required.';
+            if (errorElement) {
+                showError(errorElement, 'Security question and answer are required.');
+            }
             return;
         }
 
@@ -116,7 +145,7 @@ export function handleRegistration() {
         const phoneVal = form['phone_number']?.value || '';
         const dobVal = form['date_of_birth']?.value || '';
         if (!phoneVal || !dobVal) {
-            if (errorElement) errorElement.textContent = 'Phone number and Date of Birth are required.';
+            if (errorElement) showError(errorElement, 'Phone number and Date of Birth are required.');
             return;
         }
 
@@ -153,11 +182,11 @@ export function handleRegistration() {
                 handleAuthButton();
                 window.location.href = 'portal.html';
             } else {
-                if (errorElement) errorElement.textContent = `Registration Failed: ${result.message}`;
+                if (errorElement) showError(errorElement, `Registration Failed: ${result.message}`);
             }
         } catch (error) {
             console.error('Registration Network Error:', error);
-            if (errorElement) errorElement.textContent = 'A network error occurred.';
+            if (errorElement) showError(errorElement, 'A network error occurred.');
         }
     });
 }
@@ -174,8 +203,8 @@ export function handleLogin() {
 
         const email = form['email'].value;
         const password = form['password'].value;
-        const errorElement = document.getElementById('login-error');
-        if (errorElement) errorElement.textContent = '';
+    const errorElement = document.getElementById('login-error');
+    if (errorElement) hideError(errorElement);
 
         try {
             const response = await fetch(`${API_URL}/login`, {
@@ -201,11 +230,11 @@ export function handleLogin() {
                     window.location.href = 'portal.html';
                 }
             } else {
-                if (errorElement) errorElement.textContent = `Login Failed: ${result.message}`;
+                if (errorElement) showError(errorElement, `Login Failed: ${result.message}`);
             }
         } catch (error) {
             console.error('Login Network Error:', error);
-            if (errorElement) errorElement.textContent = 'A network error occurred.';
+            if (errorElement) showError(errorElement, 'A network error occurred.');
         }
     });
 }
@@ -217,8 +246,11 @@ export function handleLogin() {
 function displayAdminError(message) {
     const errorElement = document.getElementById('admin-login-error');
     if (errorElement) {
-        errorElement.textContent = message;
-        errorElement.style.display = message ? 'block' : 'none'; // Only show if there's a message
+        if (message) {
+            showError(errorElement, message);
+        } else {
+            hideError(errorElement);
+        }
     }
 }
 
