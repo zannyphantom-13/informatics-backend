@@ -177,30 +177,55 @@
                 flex-wrap: wrap;
             }
             
-            /* Make sidebar collapsible on mobile */
+            /* Make sidebar collapsible on mobile with fixed positioning */
             main {
-                flex-direction: column;
+                flex-direction: row;
+                position: relative;
             }
             
             .tii-ad-admin-sidebar {
-                width: 100%;
+                width: 250px;
                 max-height: 0;
                 overflow: hidden;
                 transition: max-height 0.3s ease-out;
                 padding: 0;
                 border-bottom: 1px solid #34495e;
+                position: fixed;
+                top: 80px;
+                left: 0;
+                height: calc(100vh - 80px);
+                z-index: 999;
+                overflow-y: auto;
             }
             
             /* Show sidebar when active */
             .tii-ad-admin-sidebar.mobile-active {
-                max-height: 500px;
+                max-height: 100vh;
                 padding: 20px 0;
+            }
+            
+            /* Position hamburger button properly */
+            #mobile-sidebar-toggle {
+                display: block !important;
+                position: fixed;
+                top: 75px;
+                right: 15px;
+                z-index: 1000;
+                background-color: #2c3e50;
+                color: white;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 1.1em;
             }
             
             .tii-ad-admin-main {
                 padding: 15px;
                 flex-grow: 1;
                 overflow-y: auto;
+                width: 100%;
+                margin-top: 10px;
             }
             
             /* Adjust stats grid for mobile */
@@ -254,6 +279,19 @@
 
         @media (max-width: 480px) {
             /* Extra small phones */
+            body {
+                font-size: 14px;
+            }
+            
+            #mobile-sidebar-toggle {
+                padding: 6px 10px;
+                font-size: 1em;
+            }
+            
+            .tii-ad-admin-sidebar {
+                width: 100%;
+            }
+            
             .tii-ad-stats-grid {
                 grid-template-columns: 1fr;
             }
@@ -281,6 +319,16 @@
             .tii-ad-action-grid .action-tile i {
                 font-size: 1.5em;
             }
+            
+            .tii-ad-admin-nav-links a {
+                padding: 10px 15px;
+                font-size: 0.95em;
+            }
+            
+            .tii-ad-submenu a {
+                padding-left: 35px;
+                font-size: 0.85em;
+            }
         }
     </style>
 </head>
@@ -307,7 +355,7 @@
 
     <main>
         
-        <button id="mobile-sidebar-toggle" style="display: none; position: absolute; top: 70px; right: 20px; background-color: #2c3e50; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; z-index: 100; font-size: 1.2em;">☰ Menu</button>
+        <button id="mobile-sidebar-toggle"></button>
         
         <div class="tii-ad-admin-sidebar" id="admin-sidebar">
             <h3 id="tii-ad-admin-welcome-text" style="padding: 0 20px; color: white;">👋 Welcome!</h3>
@@ -604,7 +652,13 @@
         window.addEventListener('load', displayAdminToken);
 
         // --- MOBILE SIDEBAR TOGGLE ---
+        let mobileSetupDone = false;
+        
         function setupMobileSidebar() {
+            // Prevent duplicate event listeners
+            if (mobileSetupDone) return;
+            mobileSetupDone = true;
+            
             const toggleBtn = document.getElementById('mobile-sidebar-toggle');
             const sidebar = document.getElementById('admin-sidebar');
             const windowWidth = window.innerWidth;
@@ -612,13 +666,15 @@
             // Show toggle button on mobile
             if (windowWidth <= 768) {
                 toggleBtn.style.display = 'block';
+                toggleBtn.textContent = '☰ Menu';
             } else {
                 toggleBtn.style.display = 'none';
                 sidebar.classList.remove('mobile-active');
             }
 
             // Toggle sidebar on button click
-            toggleBtn.addEventListener('click', () => {
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 sidebar.classList.toggle('mobile-active');
                 toggleBtn.textContent = sidebar.classList.contains('mobile-active') ? '✕ Close' : '☰ Menu';
             });
@@ -632,11 +688,18 @@
                     }
                 });
             });
+            
+            // Close sidebar when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target) && sidebar.classList.contains('mobile-active')) {
+                    sidebar.classList.remove('mobile-active');
+                    toggleBtn.textContent = '☰ Menu';
+                }
+            });
         }
 
-        // Setup mobile sidebar on load and on resize
+        // Setup mobile sidebar on load
         window.addEventListener('load', setupMobileSidebar);
-        window.addEventListener('resize', setupMobileSidebar);
     </script>
     
     </body>
