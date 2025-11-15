@@ -32,21 +32,31 @@ const admin = require('firebase-admin');
 
 let db;
 let mockStore = {}; // For file-based DB fallback (module-scoped so debug endpoint can access it)
+let usingFirebase = false;
+let usingFileBased = false;
 
 try {
   if (!admin.apps.length) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
+    if (Object.keys(serviceAccount).length === 0) {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT is empty or not set');
+    }
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
       databaseURL: process.env.FIREBASE_DATABASE_URL,
     });
   }
   db = admin.database();
-  console.log('✅ Firebase connected');
+  usingFirebase = true;
+  console.log('✅ Firebase connected successfully');
 } catch (err) {
-  console.warn('⚠️ Firebase not configured. Using file-based persistent DB. For production, set FIREBASE_SERVICE_ACCOUNT and FIREBASE_DATABASE_URL.');
+  console.warn('⚠️ Firebase not configured:', err.message);
+  console.warn('📁 Using file-based persistent DB instead (ephemeral on Render - data will NOT persist across restarts)');
+  console.warn('📝 To fix: Set FIREBASE_SERVICE_ACCOUNT and FIREBASE_DATABASE_URL environment variables');
   
-  // File-based persistent database (survives server restarts)
+  usingFileBased = true;
+  
+  // File-based persistent database (survives server restarts ONLY on local dev)
   const fs = require('fs');
   const dbPath = path.join(__dirname, 'database.json');
   
@@ -56,6 +66,7 @@ try {
       if (fs.existsSync(dbPath)) {
         const data = fs.readFileSync(dbPath, 'utf-8');
         mockStore = JSON.parse(data);
+        console.log(`✅ Loaded ${Object.keys(mockStore).length} records from database.json`);
       } else {
         mockStore = {};
         saveDatabase();
@@ -189,6 +200,25 @@ async function sendOTPEmail(email, otp) {
 // ============================================
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ============================================
+// DEBUG ENDPOINT: PERSISTENCE STATUS
+// ============================================
+app.get('/api/debug/persistence-status', (req, res) => {
+  res.json({
+    usingFirebase,
+    usingFileBased,
+    environment: process.env.NODE_ENV || 'development',
+    message: usingFirebase 
+      ? '✅ Using Firebase - data persists across restarts'
+      : usingFileBased 
+        ? '⚠️ Using file-based DB - data will NOT persist on Render (ephemeral storage)'
+        : '❌ No database configured',
+    firebaseConfigured: !!process.env.FIREBASE_SERVICE_ACCOUNT && !!process.env.FIREBASE_DATABASE_URL,
+    mockStoreSize: Object.keys(mockStore).length,
+    totalRecords: Object.keys(mockStore).length,
+  });
 });
 
 // ============================================
