@@ -99,9 +99,16 @@ export function handleRegistration() {
         const fullName = form['full_name'].value;
         const email = form['email'].value;
         const terms = form['terms'].checked;
+        const security_question = form['security_question'].value;
+        const security_answer = form['security_answer'].value;
 
         if (!terms) {
             alert("You must agree to the Terms of Service.");
+            return;
+        }
+
+        if (!security_question || !security_answer) {
+            if (errorElement) errorElement.textContent = 'Security question and answer are required.';
             return;
         }
 
@@ -109,7 +116,17 @@ export function handleRegistration() {
             const response = await fetch(`${API_URL}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ full_name: fullName, email, password }),
+                body: JSON.stringify({ 
+                    full_name: fullName, 
+                    email, 
+                    password,
+                    phone_number: form['phone_number']?.value || '',
+                    date_of_birth: form['date_of_birth']?.value || '',
+                    country: form['country']?.value || '',
+                    bio: form['bio']?.value || '',
+                    security_question,
+                    security_answer
+                }),
             });
 
             const result = await response.json();
@@ -119,7 +136,7 @@ export function handleRegistration() {
                 localStorage.setItem('authToken', result.authToken);
                 localStorage.setItem('userName', result.full_name);
                 localStorage.setItem('userRole', result.role);
-                    localStorage.setItem('userEmail', result.email);
+                localStorage.setItem('userEmail', result.email);
                 handleAuthButton();
                 window.location.href = 'portal.html';
             } else {

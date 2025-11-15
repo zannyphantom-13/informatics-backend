@@ -42,16 +42,49 @@ try {
   db = admin.database();
   console.log('✅ Firebase connected');
 } catch (err) {
-  console.warn('⚠️ Firebase not configured. Using mock DB (in-memory storage). For production, set FIREBASE_SERVICE_ACCOUNT and FIREBASE_DATABASE_URL.');
+  console.warn('⚠️ Firebase not configured. Using file-based persistent DB. For production, set FIREBASE_SERVICE_ACCOUNT and FIREBASE_DATABASE_URL.');
   
-  // In-memory mock database that persists during the session
-  const mockStore = {};
+  // File-based persistent database (survives server restarts)
+  const fs = require('fs');
+  const dbPath = path.join(__dirname, 'database.json');
+  
+  // Load database from file on startup
+  let mockStore = {};
+  function loadDatabase() {
+    try {
+      if (fs.existsSync(dbPath)) {
+        const data = fs.readFileSync(dbPath, 'utf-8');
+        mockStore = JSON.parse(data);
+      } else {
+        mockStore = {};
+        saveDatabase();
+      }
+    } catch (e) {
+      console.error('Error loading database:', e);
+      mockStore = {};
+    }
+  }
+  
+  // Save database to file
+  function saveDatabase() {
+    try {
+      fs.writeFileSync(dbPath, JSON.stringify(mockStore, null, 2), 'utf-8');
+      console.log('💾 Database saved to file');
+    } catch (e) {
+      console.error('Error saving database:', e);
+    }
+  }
+  
+  // Initialize database
+  loadDatabase();
+  console.log('✅ File-based database initialized at:', dbPath);
   
   db = {
     ref: (path) => ({
       set: async (data) => {
         mockStore[path] = data;
-        console.log(`✅ Mock DB set: ${path}`, data);
+        saveDatabase();
+        console.log(`✅ Mock DB set: ${path}`);
         return { key: path };
       },
       get: async () => {
@@ -65,7 +98,8 @@ try {
       update: async (updates) => {
         if (mockStore[path]) {
           mockStore[path] = { ...mockStore[path], ...updates };
-          console.log(`✅ Mock DB update: ${path}`, mockStore[path]);
+          saveDatabase();
+          console.log(`✅ Mock DB update: ${path}`);
         }
       },
       push: async () => ({ key: 'mock-key' }),
