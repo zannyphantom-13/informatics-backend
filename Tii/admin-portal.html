@@ -169,6 +169,119 @@
             font-size: 2.5em;
             margin-bottom: 10px;
         }
+
+        /* --- MOBILE RESPONSIVENESS --- */
+        @media (max-width: 768px) {
+            /* Stack header navigation vertically on mobile */
+            header {
+                flex-wrap: wrap;
+            }
+            
+            /* Make sidebar collapsible on mobile */
+            main {
+                flex-direction: column;
+            }
+            
+            .tii-ad-admin-sidebar {
+                width: 100%;
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s ease-out;
+                padding: 0;
+                border-bottom: 1px solid #34495e;
+            }
+            
+            /* Show sidebar when active */
+            .tii-ad-admin-sidebar.mobile-active {
+                max-height: 500px;
+                padding: 20px 0;
+            }
+            
+            .tii-ad-admin-main {
+                padding: 15px;
+                flex-grow: 1;
+                overflow-y: auto;
+            }
+            
+            /* Adjust stats grid for mobile */
+            .tii-ad-stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 15px;
+            }
+            
+            .tii-ad-stats-grid .stat-card {
+                padding: 15px;
+            }
+            
+            .tii-ad-stats-grid h4 {
+                font-size: 1.5em;
+            }
+            
+            /* Adjust action grid for mobile */
+            .tii-ad-action-grid {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 15px;
+            }
+            
+            .tii-ad-action-grid .action-tile {
+                padding: 15px;
+            }
+            
+            .tii-ad-action-grid .action-tile i {
+                font-size: 2em;
+                margin-bottom: 8px;
+            }
+            
+            .tii-ad-action-grid .action-tile p {
+                font-size: 0.9em;
+                margin: 5px 0;
+            }
+            
+            /* Adjust admin token section for mobile */
+            #admin-token-section {
+                flex-direction: column;
+            }
+            
+            #admin-token-section > div {
+                flex-direction: column;
+            }
+            
+            #admin-token-close-btn {
+                align-self: flex-end;
+                margin-top: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            /* Extra small phones */
+            .tii-ad-stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .tii-ad-action-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            h2 {
+                font-size: 1.5em;
+            }
+            
+            .tii-ad-stats-grid .stat-card {
+                padding: 12px;
+            }
+            
+            .tii-ad-stats-grid h4 {
+                font-size: 1.3em;
+            }
+            
+            .tii-ad-action-grid .action-tile {
+                padding: 12px;
+            }
+            
+            .tii-ad-action-grid .action-tile i {
+                font-size: 1.5em;
+            }
+        }
     </style>
 </head>
 <body>
@@ -194,7 +307,9 @@
 
     <main>
         
-        <div class="tii-ad-admin-sidebar">
+        <button id="mobile-sidebar-toggle" style="display: none; position: absolute; top: 70px; right: 20px; background-color: #2c3e50; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; z-index: 100; font-size: 1.2em;">☰ Menu</button>
+        
+        <div class="tii-ad-admin-sidebar" id="admin-sidebar">
             <h3 id="tii-ad-admin-welcome-text" style="padding: 0 20px; color: white;">👋 Welcome!</h3>
             
             <div class="tii-ad-admin-sidebar-nav">
@@ -387,6 +502,41 @@
 
         // Display token when page loads
         window.addEventListener('load', displayAdminToken);
+
+        // --- MOBILE SIDEBAR TOGGLE ---
+        function setupMobileSidebar() {
+            const toggleBtn = document.getElementById('mobile-sidebar-toggle');
+            const sidebar = document.getElementById('admin-sidebar');
+            const windowWidth = window.innerWidth;
+
+            // Show toggle button on mobile
+            if (windowWidth <= 768) {
+                toggleBtn.style.display = 'block';
+            } else {
+                toggleBtn.style.display = 'none';
+                sidebar.classList.remove('mobile-active');
+            }
+
+            // Toggle sidebar on button click
+            toggleBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('mobile-active');
+                toggleBtn.textContent = sidebar.classList.contains('mobile-active') ? '✕ Close' : '☰ Menu';
+            });
+
+            // Close sidebar when a link is clicked
+            sidebar.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', () => {
+                    if (windowWidth <= 768) {
+                        sidebar.classList.remove('mobile-active');
+                        toggleBtn.textContent = '☰ Menu';
+                    }
+                });
+            });
+        }
+
+        // Setup mobile sidebar on load and on resize
+        window.addEventListener('load', setupMobileSidebar);
+        window.addEventListener('resize', setupMobileSidebar);
     </script>
     
     </body>
