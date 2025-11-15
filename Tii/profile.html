@@ -38,6 +38,7 @@
             font-size: 0.9rem;
             color: #777;
         }
+        .bio-box p { white-space: pre-wrap; word-break: break-word; margin: 0; }
         
         .submit-btn {
             padding: 12px 25px;
@@ -165,9 +166,10 @@ async function loadProfileData() {
         document.getElementById('display_full_name').textContent = profile.full_name || 'Not provided';
         document.getElementById('display_email').textContent = profile.email || 'Not provided';
         document.getElementById('display_country').textContent = profile.country || 'Not provided';
-        document.getElementById('display_bio').textContent = profile.bio || 'No bio provided.';
-        document.getElementById('display_phone_number').textContent = profile.phone || 'Not provided';
-        document.getElementById('display_dob').textContent = profile.dob || 'Not provided';
+    document.getElementById('display_bio').textContent = profile.bio || 'No bio provided.';
+    // Use keys that match what's stored at registration
+    document.getElementById('display_phone_number').textContent = profile.phone_number || 'Not provided';
+    document.getElementById('display_dob').textContent = profile.date_of_birth || 'Not provided';
         
     } catch (error) {
         console.error("Error loading profile:", error);

@@ -112,21 +112,34 @@ export function handleRegistration() {
             return;
         }
 
+        // Require phone number and date of birth per user request
+        const phoneVal = form['phone_number']?.value || '';
+        const dobVal = form['date_of_birth']?.value || '';
+        if (!phoneVal || !dobVal) {
+            if (errorElement) errorElement.textContent = 'Phone number and Date of Birth are required.';
+            return;
+        }
+
         try {
+            const payload = {
+                full_name: fullName,
+                email,
+                password,
+                phone_number: phoneVal,
+                date_of_birth: dobVal,
+                country: form['country']?.value || '',
+                bio: form['bio']?.value || '',
+                security_question,
+                security_answer
+            };
+
+            // Log payload to help debug missing fields (will appear in browser console)
+            console.log('Registration payload:', payload);
+
             const response = await fetch(`${API_URL}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    full_name: fullName, 
-                    email, 
-                    password,
-                    phone_number: form['phone_number']?.value || '',
-                    date_of_birth: form['date_of_birth']?.value || '',
-                    country: form['country']?.value || '',
-                    bio: form['bio']?.value || '',
-                    security_question,
-                    security_answer
-                }),
+                body: JSON.stringify(payload),
             });
 
             const result = await response.json();

@@ -218,8 +218,11 @@ app.post('/register', async (req, res) => {
   try {
     const { full_name, email, password, phone_number, date_of_birth, country, bio, security_question, security_answer } = req.body;
 
-    if (!full_name || !email || !password || !security_question || !security_answer) {
-      return res.status(400).json({ message: 'Missing required fields.' });
+    // Log the incoming registration payload to help debug missing fields
+    console.log('Registration payload received:', req.body);
+
+    if (!full_name || !email || !password || !security_question || !security_answer || !phone_number || !date_of_birth) {
+      return res.status(400).json({ message: 'Missing required fields. Phone number and Date of Birth are required.' });
     }
 
     // Check if user exists
