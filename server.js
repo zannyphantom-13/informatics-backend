@@ -352,6 +352,10 @@ app.post('/admin_login_check', async (req, res) => {
     const user = snapshotVal(snapshot);
 
     // Verify password
+    if (!user.password) {
+      return res.status(401).json({ message: 'User account is not properly configured. Please contact support.' });
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Invalid credentials.' });
