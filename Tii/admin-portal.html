@@ -199,39 +199,39 @@
             header {
                 flex-wrap: wrap;
             }
-            
-            /* Make sidebar collapsible on mobile with fixed positioning */
+
+            /* Make sidebar behave as a dropdown that expands downward */
             main {
-                flex-direction: row;
+                flex-direction: column;
                 position: relative;
             }
-            
+
+            /* Sidebar becomes a full-width collapsible block in the flow */
             .tii-ad-admin-sidebar {
-                width: 250px;
+                width: 100%;
                 max-height: 0;
                 overflow: hidden;
-                transition: max-height 0.3s ease-out;
+                transition: max-height 0.35s ease-out, padding 0.25s ease;
                 padding: 0;
                 border-bottom: 1px solid #34495e;
-                position: fixed;
-                top: 80px;
-                left: 0;
-                height: calc(100vh - 80px);
-                z-index: 999;
-                overflow-y: auto;
+                position: static;
+                top: auto;
+                left: auto;
+                height: auto;
+                z-index: auto;
             }
-            
-            /* Show sidebar when active */
+
+            /* Expand downward when active (large max-height to animate) */
             .tii-ad-admin-sidebar.mobile-active {
-                max-height: 100vh;
+                max-height: 1000px;
                 padding: 20px 0;
             }
-            
-            /* Position hamburger button properly */
+
+            /* Position hamburger button just under the header (absolute relative to main) */
             #mobile-sidebar-toggle {
                 display: block !important;
-                position: fixed;
-                top: 75px;
+                position: absolute;
+                top: 8px;
                 right: 15px;
                 z-index: 1000;
                 background-color: #2c3e50;
@@ -242,7 +242,7 @@
                 cursor: pointer;
                 font-size: 1.1em;
             }
-            
+
             .tii-ad-admin-main {
                 padding: 15px;
                 flex-grow: 1;
