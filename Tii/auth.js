@@ -166,7 +166,12 @@ export function handleRegistration() {
                 const msg = result.message || 'Registration failed.';
                 if (errorElement) {
                     errorElement.textContent = `Registration Failed: ${msg}`;
-                    try { errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+                    errorElement.style.display = 'block';
+                    // Focus error and scroll into view to make it immediately visible
+                    try {
+                        errorElement.focus();
+                        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } catch (e) {}
                 }
 
                 // If server returned which fields are missing, focus the first one
