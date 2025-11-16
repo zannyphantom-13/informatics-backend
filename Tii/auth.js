@@ -81,45 +81,91 @@ export function handleRegistration() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const password = form['password'].value;
-        const confirmPassword = form['confirm_password'].value;
-        const passwordErrorDiv = document.getElementById('password-match-error');
         const errorElement = document.getElementById('registration-error');
-
+        const passwordErrorDiv = document.getElementById('password-match-error');
         if (errorElement) errorElement.textContent = '';
 
-        if (password !== confirmPassword) {
-            passwordErrorDiv.style.display = 'block';
-            form['confirm_password'].focus();
+        // Build data object from form
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        // Ensure checkbox 'terms' is captured as boolean
+        data.terms = form.querySelector('input[name="terms"]') ? form.querySelector('input[name="terms"]').checked : false;
+
+        // Client-side required fields check (matches server expectations)
+        const required = ['full_name', 'email', 'password', 'confirm_password', 'security_question', 'security_answer'];
+        for (const key of required) {
+            if (!data[key] || data[key].toString().trim() === '') {
+                const human = key.replace('_', ' ');
+                const msg = `Please fill the required field: ${human}`;
+                if (errorElement) errorElement.textContent = msg;
+                // focus the related element if present
+                const el = form.querySelector(`[name="${key}"]`) || document.getElementById(key) ;
+                if (el) {
+                    el.focus();
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+        }
+
+        // Password match check
+        if (data.password !== data.confirm_password) {
+            if (passwordErrorDiv) passwordErrorDiv.style.display = 'block';
+            const confirmEl = form.querySelector('[name="confirm_password"]') || document.getElementById('confirm-password');
+            if (confirmEl) {
+                confirmEl.focus();
+                confirmEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
             return;
         } else {
-            passwordErrorDiv.style.display = 'none';
+            if (passwordErrorDiv) passwordErrorDiv.style.display = 'none';
         }
 
-        const fullName = form['full_name'].value;
-        const email = form['email'].value;
-        const terms = form['terms'].checked;
-
-        if (!terms) {
-            alert("You must agree to the Terms of Service.");
+        // Terms agreement
+        if (!data.terms) {
+            const termsEl = form.querySelector('input[name="terms"]');
+            if (errorElement) errorElement.textContent = 'You must agree to the Terms of Service.';
+            if (termsEl) {
+                termsEl.focus();
+                termsEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
             return;
         }
+
+        // Clean data to send to server (remove confirm_password and terms)
+        delete data.confirm_password;
+        delete data.terms;
+
+        // Log data for debugging (without exposing sensitive fields in prod logs)
+        try { console.debug('Registration payload:', { ...data, password: '***' }); } catch (e) {}
 
         try {
             const response = await fetch(`${API_URL}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ full_name: fullName, email, password }),
+                body: JSON.stringify(data),
             });
 
             const result = await response.json();
 
             if (response.ok) {
-                alert(result.message);
-                localStorage.setItem('verificationEmail', email);
+                // Success: move user to OTP / verification step
+                localStorage.setItem('verificationEmail', data.email);
                 window.location.href = 'otp-verification.html';
             } else {
-                if (errorElement) errorElement.textContent = `Registration Failed: ${result.message}`;
+                const msg = result.message || 'Registration failed.';
+                if (errorElement) errorElement.textContent = `Registration Failed: ${msg}`;
+
+                // After server error, attempt to focus first missing/invalid field
+                // Re-run a light validation to find the first empty required field
+                for (const key of ['full_name','email','password','security_question','security_answer']) {
+                    if (!data[key] || data[key].toString().trim() === '') {
+                        const el = form.querySelector(`[name="${key}"]`) || document.getElementById(key);
+                        if (el) { el.focus(); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+                        break;
+                    }
+                }
             }
         } catch (error) {
             console.error('Registration Network Error:', error);
