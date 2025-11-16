@@ -150,9 +150,18 @@ export function handleRegistration() {
             const result = await response.json();
 
             if (response.ok) {
-                // Success: move user to OTP / verification step
-                localStorage.setItem('verificationEmail', data.email);
-                window.location.href = 'otp-verification.html';
+                // Success: server should return an auth token; store it and redirect to portal
+                if (result && (result.authToken || result.token || result.auth_token)) {
+                    const tokenVal = result.authToken || result.token || result.auth_token;
+                    localStorage.setItem('authToken', tokenVal);
+                    localStorage.setItem('userName', result.full_name || data.full_name || result.user?.fullName || 'Student');
+                    localStorage.setItem('userRole', result.role || 'student');
+                    // Redirect to student portal
+                    window.location.href = 'portal.html';
+                } else {
+                    // Fallback: if no token returned, redirect to portal (user is created)
+                    window.location.href = 'portal.html';
+                }
             } else {
                 const msg = result.message || 'Registration failed.';
                 if (errorElement) errorElement.textContent = `Registration Failed: ${msg}`;

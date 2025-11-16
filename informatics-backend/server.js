@@ -47,12 +47,15 @@ app.post('/register', async (req, res) => {
     if (existingUser) return res.status(400).json({ message: 'Email already in use' });
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-    const otp = generateOTP();
-    const newUser = { fullName: full_name, email, passwordHash, isVerified: false, otp, role: 'student' };
+
+    // Create user and mark as verified immediately (security-question flow replaces OTP)
+    const newUser = { fullName: full_name, email, passwordHash, isVerified: true, role: 'student' };
     usersDB.push(newUser);
-    await sendOTPEmail(email, otp);
-    console.log('New user registered:', newUser);
-    res.status(201).json({ message: 'Registration successful. Please check your email for a verification code.' });
+    console.log('New user registered (auto-verified):', newUser);
+
+    // Return a JWT so the client can be considered logged-in immediately
+    const token = jwt.sign({ email: newUser.email, role: newUser.role, fullName: newUser.fullName }, JWT_SECRET, { expiresIn: '1h' });
+    res.status(201).json({ message: 'Registration successful.', token, user: { fullName: newUser.fullName, email: newUser.email } });
 });
 
 /** OTP VERIFICATION (POST /verify-otp) - UPDATED */
