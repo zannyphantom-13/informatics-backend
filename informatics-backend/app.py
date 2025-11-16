@@ -45,15 +45,8 @@ class OTP(db.Model):
 
 # --- UTILITIES ---
 def send_email(email, subject, body):
-    """
-    MOCK EMAIL SENDER.
-    In a real app, integrate with Flask-Mail or an external service.
-    """
-    print("-" * 25 + " MOCK EMAIL SENDER " + "-" * 25)
-    print(f"To: {email}")
-    print(f"Subject: {subject}")
-    print(f"Body: {body}")
-    print("-" * 65)
+    """Mock email sender - email disabled for security."""
+    print(f"[EMAIL MOCK] To: {email} | Subject: {subject}")
 
 def generate_otp():
     return str(random.randint(100000, 999999))
@@ -76,33 +69,17 @@ def register():
     try:
         # Automatically assign the 'admin' role to the very first user who registers
         if User.query.count() == 0:
-            new_user = User(full_name=full_name, email=email, is_verified=False, role='admin')
+            new_user = User(full_name=full_name, email=email, is_verified=True, role='admin')
         else:
-            new_user = User(full_name=full_name, email=email, is_verified=False, role='student')
+            new_user = User(full_name=full_name, email=email, is_verified=True, role='student')
             
         new_user.set_password(password)
         db.session.add(new_user)
         db.session.commit()
 
-        # Generate and send OTP
-        OTP.query.filter_by(user_email=email).delete() 
-        otp_code = generate_otp()
-        expiration_time = datetime.utcnow() + timedelta(minutes=5)
-        new_otp = OTP(user_email=email, code=otp_code, expires_at=expiration_time)
-        db.session.add(new_otp)
+        # Auto-verify on registration: OTP flow deprecated for student registration
         db.session.commit()
-
-        # Send OTP to the student's email
-        send_email(
-            email, 
-            subject="Your 6-Digit Verification Code", 
-            body=f"Your 6-digit verification code is: {otp_code}"
-        )
-        
-        return jsonify({
-            'message': 'Registration successful. Verification code sent.',
-            'email': email
-        }), 201
+        return jsonify({ 'message': 'Registration successful (auto-verified).', 'email': email }), 201
 
     except Exception as e:
         db.session.rollback()
@@ -110,72 +87,10 @@ def register():
         return jsonify({'message': 'Internal server error during registration.'}), 500
 
 
-@app.route('/resend-otp', methods=['POST'])
-def resend_otp():
-    data = request.get_json()
-    email = data.get('email')
-
-    user = User.query.filter_by(email=email).first()
-
-    if not user or user.is_verified:
-        return jsonify({'message': 'Account not found or already verified.'}), 400
-
-    try:
-        OTP.query.filter_by(user_email=email).delete()
-
-        otp_code = generate_otp()
-        expiration_time = datetime.utcnow() + timedelta(minutes=5)
-        new_otp = OTP(user_email=email, code=otp_code, expires_at=expiration_time)
-        
-        db.session.add(new_otp)
-        db.session.commit()
-
-        # Send OTP to the student's email
-        send_email(
-            email, 
-            subject="Your 6-Digit Verification Code", 
-            body=f"Your 6-digit verification code is: {otp_code}"
-        )
-
-        return jsonify({'message': 'New verification code sent.'}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error during resend: {e}")
-        return jsonify({'message': 'Internal server error during resend.'}), 500
+# resend-otp route removed — OTP-based registration verification is deprecated.
 
 
-@app.route('/verify-otp', methods=['POST'])
-def verify_otp():
-    data = request.get_json()
-    email = data.get('email')
-    otp_code = data.get('otp_code')
-
-    if not all([email, otp_code]):
-        return jsonify({'message': 'Missing email or OTP code'}), 400
-    
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return jsonify({'message': 'User not found.'}), 404
-
-    otp_entry = OTP.query.filter_by(user_email=email, code=otp_code) \
-                             .filter(OTP.expires_at > datetime.utcnow()) \
-                             .order_by(OTP.created_at.desc()) \
-                             .first()
-
-    if otp_entry:
-        user.is_verified = True
-        db.session.delete(otp_entry)
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'Verification successful. Redirecting to portal...',
-            'authToken': 'temp_secure_token', 
-            'full_name': user.full_name,
-            'role': user.role
-        }), 200
-    else:
-        return jsonify({'message': 'Invalid or expired verification code.'}), 401
+# verify-otp route removed — OTP-based verification is deprecated.
 
 
 @app.route('/login', methods=['POST'])
@@ -261,9 +176,9 @@ def send_admin_token():
         # 2. Clear any old tokens for this user
         OTP.query.filter_by(user_email=user_email).delete() 
 
-        # 3. Generate the token and set expiration (10 minutes)
+        # 3. Generate the token and set expiration (3 minutes)
         token = generate_otp()
-        expiration_time = datetime.utcnow() + timedelta(minutes=10) 
+        expiration_time = datetime.utcnow() + timedelta(minutes=3) 
 
         # 4. Store the token associated with the user trying to log in
         new_otp = OTP(user_email=user_email, code=token, expires_at=expiration_time)
@@ -274,7 +189,7 @@ def send_admin_token():
         email_body = (
             f"An attempt was made by user {user_email} to access the Admin Portal.\n\n"
             f"Your one-time Admin Token for this attempt is: {token}\n\n"
-            f"This token is valid for 10 minutes."
+            f"This token is valid for 3 minutes."
         )
         send_email(
             email=ADMIN_RECIPIENT_EMAIL,

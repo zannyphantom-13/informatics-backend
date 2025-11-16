@@ -9,7 +9,7 @@ const isLoggedIn = !!authToken;
 const currentPage = window.location.pathname.split("/").pop() || "index.html"; 
 
 // Pages that should be inaccessible AFTER login
-const loginPages = ["login.html", "register.html", "otp-verification.html", "admin-login.html"];
+const loginPages = ["login.html", "register.html", "admin-login.html"];
 
 // Pages that must be protected (requires a user to be logged in)
 const studentProtectedPages = [

@@ -7,7 +7,6 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const sgMail = require('@sendgrid/mail');
 require('dotenv').config();
 
 const app = express();
@@ -74,19 +73,18 @@ try {
 }
 
 // ============================================
-// SENDGRID EMAIL SETUP (works on Render!)
+// EMAIL SETUP (using mock console logs)
 // ============================================
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  console.log('Γ£à SendGrid configured and ready to send emails');
-} else {
-  console.warn('ΓÜá∩╕Å SENDGRID_API_KEY not set. Emails will not be sent. Add it to Render Environment.');
-}
+// Note: Email sending is disabled for security.
+// Admin tokens and OTP codes are displayed in server logs only.
 
 // ============================================
 // UTILITIES
 // ============================================
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || (() => {
+  console.warn('[SECURITY] JWT_SECRET not set in environment. Using temporary key. Set JWT_SECRET in .env or environment variables!');
+  return 'temp-secret-' + Math.random().toString(36).substr(2, 9);
+})();
 const OTP_EXPIRY = 3 * 60 * 1000; // 3 minutes for admin token
 
 function generateOTP() {
@@ -109,41 +107,8 @@ function snapshotVal(snapshot) {
 }
 
 async function sendOTPEmail(email, otp) {
-  try {
-    const msg = {
-      to: email,
-      from: process.env.EMAIL_USER || 'noreply@informatics-initiative.com',
-      subject: '≡ƒöÉ Your One-Time Verification Code',
-      html: `
-        <div style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
-          <div style="background: white; padding: 30px; border-radius: 8px; max-width: 500px; margin: 0 auto;">
-            <h2 style="color: #2a6e62; text-align: center;">The Informatics Initiative</h2>
-            <p style="color: #333; font-size: 16px;">Your verification code is:</p>
-            <div style="background: #f0f0f0; border-left: 4px solid #2a6e62; padding: 15px; text-align: center;">
-              <h1 style="color: #2a6e62; font-size: 36px; letter-spacing: 5px; margin: 0;">${otp}</h1>
-            </div>
-            <p style="color: #666; font-size: 14px; margin-top: 15px;">
-              This code expires in <strong>10 minutes</strong>. Do not share this code with anyone.
-            </p>
-            <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
-            <p style="color: #999; font-size: 12px; text-align: center;">
-              If you didn't request this, please ignore this email.
-            </p>
-          </div>
-        </div>
-      `,
-    };
-
-    if (process.env.SENDGRID_API_KEY) {
-      await sgMail.send(msg);
-      console.log(`Γ£à OTP email sent via SendGrid to ${email}`);
-    } else {
-      console.warn(`ΓÜá∩╕Å SENDGRID_API_KEY not configured. OTP stored but email not sent.`);
-    }
-  } catch (emailError) {
-    console.warn(`ΓÜá∩╕Å Email sending failed for ${email}:`, emailError.message);
-    console.warn('OTP is still valid in the system. User can proceed.');
-  }
+  // Email sending disabled for security. OTP displayed in logs only.
+  console.log(`[EMAIL MOCK] OTP for ${email}: ${otp}`);
 }
 
 // ============================================
@@ -419,40 +384,8 @@ app.post('/send_admin_token', async (req, res) => {
     console.log(`ΓÅ│ Valid for: 3 minutes`);
     console.log("============================================================");
 
-    // Send token via SendGrid email
-    const msg = {
-      to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'admin@informatics-initiative.com',
-      from: process.env.EMAIL_USER || 'noreply@informatics-initiative.com',
-      subject: `≡ƒöÉ Admin Access Request from ${email}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
-          <div style="background: white; padding: 30px; border-radius: 8px; max-width: 500px; margin: 0 auto;">
-            <h2 style="color: #2a6e62; text-align: center;">The Informatics Initiative</h2>
-            <p style="color: #333; font-size: 16px;">Admin Access Request</p>
-            <p style="color: #666;">A user is attempting to access the Admin Portal:</p>
-            <p><strong>User Email:</strong> ${email}</p>
-            <div style="background: #f0f0f0; border-left: 4px solid #2a6e62; padding: 15px; text-align: center; margin: 20px 0;">
-              <p style="margin: 0; color: #666;">Your Admin Token:</p>
-              <h1 style="color: #2a6e62; font-size: 36px; letter-spacing: 5px; margin: 10px 0;">${adminToken}</h1>
-            </div>
-            <p style="color: #666; font-size: 14px;">
-              This token expires in <strong>3 minutes</strong>. Do not share this token with anyone.
-            </p>
-            <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
-            <p style="color: #999; font-size: 12px; text-align: center;">
-              If you didn't initiate this request, please ignore this email.
-            </p>
-          </div>
-        </div>
-      `,
-    };
-
-    if (process.env.SENDGRID_API_KEY) {
-      await sgMail.send(msg);
-      console.log(`Γ£à Admin token email sent to: ${msg.to}`);
-    } else {
-      console.warn(`ΓÜá∩╕Å SENDGRID_API_KEY not configured. Token not emailed. Token: ${adminToken}`);
-    }
+    // Admin token displayed in server logs only (email sending disabled for security)
+    console.log(`[EMAIL MOCK] Admin token for ${email}: ${adminToken}`);
 
     // Broadcast update to SSE clients so admin dashboards refresh instantly
     broadcastTokenUpdate().catch(() => {});

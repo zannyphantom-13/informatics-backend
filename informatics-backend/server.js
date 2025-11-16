@@ -58,32 +58,7 @@ app.post('/register', async (req, res) => {
     res.status(201).json({ message: 'Registration successful.', token, user: { fullName: newUser.fullName, email: newUser.email } });
 });
 
-/** OTP VERIFICATION (POST /verify-otp) - UPDATED */
-app.post('/verify-otp', (req, res) => {
-    const { email, otp_code } = req.body; 
-    if (!email || !otp_code) return res.status(400).json({ message: 'Email and OTP code are required.' });
-    const user = usersDB.find(user => user.email === email);
-    if (!user) return res.status(404).json({ message: 'User not found.' });
-    if (user.isVerified) return res.status(400).json({ message: 'Account already verified.' });
-
-    if (user.otp === otp_code) {
-        user.isVerified = true;
-        user.otp = null; 
-        console.log('User verified:', email);
-
-        const token = jwt.sign({ email: user.email, role: user.role, fullName: user.fullName }, JWT_SECRET, { expiresIn: '1h' });
-
-        // !! UPDATED RESPONSE !!
-        res.status(200).json({ 
-            message: 'Account verified successfully!', 
-            token: token,
-            // Send user data back
-            user: { fullName: user.fullName, email: user.email }
-        });
-    } else {
-        res.status(400).json({ message: 'Invalid verification code.' });
-    }
-});
+// OTP verification endpoint removed — OTP-based verification is deprecated.
 
 /** STUDENT LOGIN (POST /login) - UPDATED */
 app.post('/login', async (req, res) => {

@@ -230,8 +230,11 @@ export function handleLogin() {
                     window.location.href = 'portal.html';
                 }
             } else if (response.status === 403 && result.action === 'redirect_to_otp') {
-                localStorage.setItem('verificationEmail', email);
-                window.location.href = 'otp-verification.html';
+                // Previously redirected to OTP verification; OTP flow removed.
+                // Show server message and focus the email input to prompt the user.
+                if (errorElement) errorElement.textContent = result.message || 'Account requires verification.';
+                const emailEl = form.querySelector('[name="email"]') || document.getElementById('email');
+                if (emailEl) { emailEl.focus(); emailEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
             } else {
                 if (errorElement) errorElement.textContent = `Login Failed: ${result.message}`;
             }
@@ -245,77 +248,7 @@ export function handleLogin() {
 /* ============================================
     OTP VERIFICATION
 ============================================ */
-export function handleOTPVerification() {
-    const verificationForm = document.getElementById('otp-verification-form');
-    const resendButton = document.getElementById('resend-otp-button');
-    const emailDisplay = document.getElementById('verification-email-display');
-    const errorElement = document.getElementById('verification-error');
-    const email = localStorage.getItem('verificationEmail');
-
-    if (!email) {
-        alert("Verification link expired. Please log in again.");
-        window.location.href = 'login.html';
-        return;
-    }
-
-    if (emailDisplay) emailDisplay.textContent = email;
-
-    if (verificationForm) {
-        verificationForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const otpCode = document.getElementById('otp_code').value;
-            if (!otpCode) {
-                errorElement.textContent = 'Please enter the 6-digit code.';
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_URL}/verify-otp`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, otp_code: otpCode }),
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    alert(result.message);
-                    localStorage.removeItem('verificationEmail');
-                    localStorage.setItem('authToken', result.authToken);
-                    localStorage.setItem('userName', result.full_name);
-                    localStorage.setItem('userRole', result.role);
-
-                    handleAuthButton();
-                    window.location.href = 'portal.html';
-                } else {
-                    errorElement.textContent = `Verification Failed: ${result.message}`;
-                }
-            } catch (error) {
-                console.error('OTP Error:', error);
-                errorElement.textContent = 'A network error occurred.';
-            }
-        });
-    }
-
-    if (resendButton) {
-        resendButton.addEventListener('click', async () => {
-            errorElement.textContent = 'Sending new code...';
-            try {
-                const response = await fetch(`${API_URL}/resend-otp`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email }),
-                });
-
-                const result = await response.json();
-                errorElement.textContent = result.message;
-            } catch {
-                errorElement.textContent = 'Network error while resending OTP.';
-            }
-        });
-    }
-}
+/* OTP flow removed: handleOTPVerification, verify-otp and resend-otp are deprecated. */
 
 /* ============================================
     HELPER: DISPLAY ADMIN ERROR

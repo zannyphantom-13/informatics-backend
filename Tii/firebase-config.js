@@ -25,35 +25,6 @@ const db = getDatabase(app);
 // ============================================
 // LISTEN FOR REAL-TIME OTP UPDATES
 // ============================================
-export function listenForOTP(email, onOTPReceived) {
-  // Normalize email (replace dots with underscores to match backend format)
-  const normalizedEmail = email.replace(/\./g, '_');
-  const userRef = ref(db, `users/${normalizedEmail}/otp`);
-
-  // Set up real-time listener
-  const unsubscribe = onValue(userRef, (snapshot) => {
-    if (snapshot.exists()) {
-      const otp = snapshot.val();
-      if (otp && otp.length === 6) {
-        console.log('🔔 Real-time OTP received:', otp);
-        onOTPReceived(otp);
-      }
-    }
-  }, (error) => {
-    console.error('Error listening for OTP:', error);
-  });
-
-  // Return unsubscribe function for cleanup
-  return unsubscribe;
-}
-
-// ============================================
-// STOP LISTENING FOR OTP
-// ============================================
-export function stopListeningForOTP(unsubscribe) {
-  if (unsubscribe) {
-    unsubscribe();
-  }
-}
+// Real-time OTP listener removed — OTP flow deprecated.
 
 export { db };
