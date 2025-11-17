@@ -932,7 +932,7 @@ app.post('/api/courses', async (req, res) => {
     try { decoded = jwt.verify(token, JWT_SECRET); } catch (e) { return res.status(401).json({ message: 'Invalid token' }); }
     if (decoded.role !== 'admin') return res.status(403).json({ message: 'Admin role required' });
 
-    const { title, description, url, image } = req.body;
+    const { title, description, url, image, placement } = req.body;
     if (!title || !description) return res.status(400).json({ message: 'Title and description required.' });
 
     const id = `c_${Date.now()}`;
@@ -940,6 +940,7 @@ app.post('/api/courses', async (req, res) => {
       title,
       description,
       url: url || '',
+      placement: placement || 'other', // 'curriculum' or 'other'
       image: image || '',
       created_at: new Date().toISOString(),
       created_by: decoded.email || 'admin',

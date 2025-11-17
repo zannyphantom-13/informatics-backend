@@ -30,6 +30,13 @@
                 <label for="image">Image URL (optional)</label>
                 <input id="image" name="image" placeholder="https://..." />
             </div>
+            <div class="form-group">
+                <label for="placement">Display As</label>
+                <select id="placement" name="placement">
+                    <option value="other">Other Courses (card)</option>
+                    <option value="curriculum">Curriculum List (button)</option>
+                </select>
+            </div>
             <button type="submit" class="submit-btn">Add Course</button>
             <div id="upload-course-message" style="margin-top:12px;"></div>
         </form>
@@ -53,16 +60,26 @@
         if (!token) { msgEl.style.color = '#c0392b'; msgEl.textContent = 'You must be logged in as admin.'; return; }
 
         try {
+            const placement = document.getElementById('placement').value || 'other';
             const resp = await fetch(`${API_URL}/api/courses`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ title, description, url, image })
+                body: JSON.stringify({ title, description, url, image, placement })
             });
             const result = await resp.json();
             if (resp.ok) {
                 msgEl.style.color = '#2a6e62';
                 msgEl.textContent = 'Course added.';
                 document.getElementById('upload-course-form').reset();
+                // Show preview in admin page using curriculum style if selected
+                if (placement === 'curriculum') {
+                    const preview = document.createElement('a');
+                    preview.className = 'course-button';
+                    preview.href = result.url || '#';
+                    preview.style.marginTop = '12px';
+                    preview.innerHTML = `<span>${result.title}</span><i class="fas fa-chevron-right"></i>`;
+                    document.getElementById('upload-course-message').appendChild(preview);
+                }
             } else {
                 msgEl.style.color = '#c0392b';
                 msgEl.textContent = result.message || 'Failed to add course.';

@@ -71,6 +71,32 @@
             </a>
 
         </div>
+        <script>
+        // Fetch persisted courses that have placement === 'curriculum' and append them
+        (async function(){
+            try {
+                const API_URL = window.location.origin || 'http://localhost:3000';
+                const resp = await fetch(`${API_URL}/api/courses`);
+                if (!resp.ok) return;
+                const data = await resp.json();
+                if (!data.courses || !data.courses.length) return;
+                const list = document.querySelector('.course-list');
+                data.courses.filter(c => c.placement === 'curriculum').forEach(c => {
+                    // Avoid duplicating built-in static links by checking titles
+                    const exists = Array.from(list.querySelectorAll('.course-button')).some(a => a.textContent.trim() === c.title);
+                    if (exists) return;
+                    const a = document.createElement('a');
+                    a.className = 'course-button';
+                    a.href = c.url || '#';
+                    a.innerHTML = `<span>${c.title}</span><i class="fas fa-chevron-right"></i>`;
+                    // Insert before the Explore Other Courses button (which is last)
+                    const explore = list.querySelector('.explore-btn-secondary');
+                    if (explore) list.insertBefore(a, explore);
+                    else list.appendChild(a);
+                });
+            } catch (e) { console.error('Failed to load curriculum courses', e); }
+        })();
+        </script>
     </main>
 
     <footer>
