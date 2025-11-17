@@ -1,1 +1,12 @@
-{}
+{
+	"courses": {
+		"c_test_1": {
+			"title": "Intro to Applied Informatics",
+			"description": "A short test course to verify the other-courses listing and styles. Covers data basics and tools.",
+			"url": "https://example.com/intro-informatics",
+			"placement": "other",
+			"created_at": "2025-11-17T00:00:00.000Z",
+			"created_by": "system-test"
+		}
+	}
+}
