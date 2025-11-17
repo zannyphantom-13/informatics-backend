@@ -125,7 +125,10 @@ const JWT_SECRET = process.env.JWT_SECRET || (() => {
   console.warn('[DEBUG] Generated temp JWT_SECRET:', secret.substring(0, 10) + '...');
   return secret;
 })();
-const OTP_EXPIRY = 3 * 60 * 1000; // 3 minutes for admin token
+
+console.log('[INFO] JWT_SECRET loaded:', JWT_SECRET.substring(0, 10) + '...');
+console.log('[INFO] NODE_ENV:', process.env.NODE_ENV || 'not set');
+console.log('[INFO] Port:', PORT);
 
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
