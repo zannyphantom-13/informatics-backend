@@ -12,6 +12,11 @@ require('dotenv').config();
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
+const fs = require('fs');
+const COURSES_DIR = path.join(__dirname, 'Tii', 'courses');
+// Ensure courses directory exists
+try { fs.mkdirSync(COURSES_DIR, { recursive: true }); } catch (e) { console.warn('Could not create courses directory', e); }
+
 // ============================================
 // MIDDLEWARE
 // ============================================
@@ -956,6 +961,21 @@ app.post('/api/courses', async (req, res) => {
     };
 
     await db.ref(`courses/${id}`).set(course);
+
+    // Generate a local HTML page for this course if no external URL provided
+    try {
+      const pagePath = `/Tii/courses/${id}.html`;
+      const targetUrl = course.url && course.url.length ? course.url : pagePath;
+      // update course url in DB if it was empty
+      if (!course.url || course.url.trim() === '') {
+        course.url = targetUrl;
+        await db.ref(`courses/${id}`).update({ url: targetUrl });
+      }
+      await generateCoursePage(id, course);
+    } catch (e) {
+      console.warn('Failed to generate course page:', e && e.message ? e.message : e);
+    }
+
     res.status(201).json({ id, ...course });
   } catch (error) {
     console.error('Create course error:', error);
@@ -987,3 +1007,65 @@ app.delete('/api/courses/:id', async (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`≡ƒÜÇ Server running on port ${PORT}`);
 });
+
+// ---------------------------
+// Course page generation
+// ---------------------------
+async function generateCoursePage(id, course) {
+  try {
+    const safeTitle = (course.title || 'Course').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const safeDesc = (course.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
+    const placementLabel = course.placement === 'curriculum' ? 'Curriculum' : 'Supplementary Course';
+
+    const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${safeTitle} — The Informatics Initiative</title>
+  <link rel="stylesheet" href="/Tii/styles.css">
+  <style>body{padding:30px} .course-hero{max-width:900px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.06)} .course-meta{color:#666;margin-bottom:12px}</style>
+</head>
+<body>
+  <a href="/Tii/index.html">← Back to Home</a>
+  <main>
+    <div class="course-hero">
+      <h1>${safeTitle}</h1>
+      <div class="course-meta">${placementLabel} • Added by ${course.created_by || 'admin'} on ${new Date(course.created_at).toLocaleString()}</div>
+      <div class="course-body">${safeDesc}</div>
+      <div style="margin-top:18px;"><a class="explore-btn-secondary" href="/Tii/other-courses.html">View other courses</a></div>
+    </div>
+  </main>
+</body>
+</html>`;
+
+    const filePath = path.join(COURSES_DIR, `${id}.html`);
+    await fs.promises.writeFile(filePath, html, 'utf8');
+    console.log(`Generated course page: ${filePath}`);
+  } catch (e) {
+    console.warn('Error generating course HTML for', id, e && e.message ? e.message : e);
+  }
+}
+
+// On startup, generate pages for existing courses (if missing)
+(async function ensureCoursePages() {
+  try {
+    const snapshot = await db.ref('courses').get();
+    const data = snapshotVal(snapshot) || {};
+    for (const id of Object.keys(data)) {
+      const course = data[id] || {};
+      const filePath = path.join(COURSES_DIR, `${id}.html`);
+      // generate if missing
+      if (!fs.existsSync(filePath)) {
+        // if url is empty, set it to the generated path
+        if (!course.url || course.url.trim() === '') {
+          const pagePath = `/Tii/courses/${id}.html`;
+          try { await db.ref(`courses/${id}`).update({ url: pagePath }); course.url = pagePath; } catch (e) { /* ignore */ }
+        }
+        await generateCoursePage(id, course);
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to ensure course pages on startup:', e && e.message ? e.message : e);
+  }
+})();
