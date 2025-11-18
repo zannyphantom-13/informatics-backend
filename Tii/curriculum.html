@@ -25,72 +25,25 @@
                 <path d="M50 5 L50 95 M10 30 L90 70 M10 70 L90 30" stroke="#2a6e62" stroke-width="2"/>
             </svg>
             <h1>THE INFORMATICS INITIATIVE</h1>
-        <main>
-            <h2 style="text-align:center;margin-bottom:32px;">Curriculum</h2>
-            <div class="other-courses-grid">
-                <div class="other-course-card">
-                    <h4>Generated Course (Test)</h4>
-                    <p>Test course for server-side page generation and lesson rendering. Useful for verifying system functionality and UI consistency.</p>
-                    <a class="explore-btn-secondary" href="courses/c_generated_test.html">Explore Course</a>
-                </div>
-                <div class="other-course-card">
-                    <h4>Programming</h4>
-                    <p>Foundational and applied programming for informatics. Covers Python, JavaScript, and computational thinking.</p>
-                    <a class="explore-btn-secondary" href="courses/programming.html">Explore Course</a>
-                </div>
-                <div class="other-course-card">
-                    <h4>Data Analysis</h4>
-                    <p>Techniques and tools for analyzing data in informatics. Includes statistics, visualization, and data wrangling.</p>
-                    <a class="explore-btn-secondary" href="courses/data-analysis.html">Explore Course</a>
-                </div>
-                <div class="other-course-card">
-                    <h4>Drug Discovery</h4>
-                    <p>Methods and informatics for drug discovery. Learn about cheminformatics, bioinformatics, and pharmaceutical data.</p>
-                    <a class="explore-btn-secondary" href="courses/drug-discovery.html">Explore Course</a>
-                </div>
-                <div class="other-course-card">
-                    <h4>Computational Chemistry</h4>
-                    <p>Explore computational approaches in chemistry, including molecular modeling, quantum chemistry, and simulation techniques.</p>
-                    <a class="explore-btn-secondary" href="courses/computational-chemistry.html">Explore Course</a>
-                </div>
-            </div>
-        </main>
+        </div>
+        </a>
+        <nav class="main-nav">
+            <a href="curriculum.html">Curriculum</a>
+            <a href="lessons.html">Weekly Lessons</a>
+            <a href="portal.html">Student Portal</a>
+            <a href="feedback.html">Feedback</a>
+        </nav>
+        <a id="auth-button" href="login.html" class="login-btn">Login</a>
+    </header>
 
     <main>
-        <h2 style="text-align: center; color: #2a6e62; margin-bottom: 30px;">📘 Explore Our Informatics Pathways</h2>
-        
-        <div class="course-list">
-            
-            <a href="/Tii/courses/computational-chemistry.html" class="course-button" id="computational-chemistry">
-                <span>Computational Chemistry</span>
-                <i class="fas fa-chevron-right"></i>
-            </a>
-            
-            <a href="/Tii/courses/bioinformatics.html" class="course-button" id="bioinformatics">
-                <span>Bioinformatics</span>
-                <i class="fas fa-chevron-right"></i>
-            </a>
-            
-            <a href="/Tii/courses/programming.html" class="course-button" id="programming">
-                <span>Programming</span>
-                <i class="fas fa-chevron-right"></i>
-            </a>
-            
-            <a href="/Tii/courses/data-analysis.html" class="course-button" id="data-analysis">
-                <span>Data Analysis</span>
-                <i class="fas fa-chevron-right"></i>
-            </a>
-
-            <a href="/Tii/courses/drug-discovery.html" class="course-button" id="drug-discovery">
-                <span>Drug Discovery</span>
-                <i class="fas fa-chevron-right"></i>
-            </a>
-
-            <a href="/Tii/other-courses.html" class="explore-btn-secondary">
-                EXPLORE OTHER COURSES
-            </a>
-
-        </div>
+        <h2>Curriculum</h2>
+        <ul class="course-list">
+            <li><a class="course-button" href="courses/programming.html">Programming</a></li>
+            <li><a class="course-button" href="courses/data-analysis.html">Data Analysis</a></li>
+            <li><a class="course-button" href="courses/drug-discovery.html">Drug Discovery</a></li>
+            <li><a class="course-button" href="courses/computational-chemistry.html">Computational Chemistry</a></li>
+        </ul>
         <script>
         // Fetch persisted courses that have placement === 'curriculum' and append them
         (async function(){
