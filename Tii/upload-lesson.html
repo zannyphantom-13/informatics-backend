@@ -8,9 +8,10 @@
 </head>
 <body>
   <header><a href="admin-portal.html">← Back to Admin</a></header>
-  <main style="max-width:800px;margin:40px auto;">
-    <h2>Upload New Lesson</h2>
-    <form id="upload-lesson-form">
+    <main style="max-width:900px;margin:24px auto;display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:start;">
+    <section>
+      <h2>Upload New Lesson</h2>
+      <form id="upload-lesson-form">
       <div class="form-group">
         <label for="course-select">Course</label>
         <select id="course-select" required></select>
@@ -20,8 +21,36 @@
         <input id="lesson-title" name="title" required />
       </div>
       <div class="form-group">
-        <label for="lesson-content">Content / Notes</label>
-        <textarea id="lesson-content" name="content" rows="6"></textarea>
+        <label for="lesson-content">Content / Notes <small>(optional)</small></label>
+        <textarea id="lesson-content" name="content" rows="6" placeholder="Add lesson notes or leave blank"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="lesson-topic">Topic</label>
+        <input id="lesson-topic" name="topic" />
+      </div>
+      <div class="form-group">
+        <label for="lesson-weeks">Weeks</label>
+        <input id="lesson-weeks" name="weeks" placeholder="e.g. Weeks 1-2" />
+      </div>
+      <div class="form-group">
+        <label for="lesson-date">Date & Time <small>(optional)</small></label>
+        <input id="lesson-date" name="date" type="datetime-local" />
+      </div>
+      <div class="form-group">
+        <label for="lesson-other">Other info</label>
+        <input id="lesson-other" name="other_info" />
+      </div>
+      <div class="form-group">
+        <label for="lesson-image">Image (optional)</label>
+        <input id="lesson-image" name="image" type="file" accept="image/*" />
+        <div id="image-preview" style="margin-top:8px;display:none;"></div>
+      </div>
+      <div class="form-group">
+        <label for="lesson-order">Order (lower first)</label>
+        <input id="lesson-order" name="order" type="number" value="0" />
+      </div>
+      <div class="form-group">
+        <label><input id="lesson-published" name="published" type="checkbox" checked /> Published</label>
       </div>
       <div class="form-group">
         <label for="resource-url">Resource URL (optional)</label>
@@ -29,8 +58,17 @@
       </div>
       <button class="submit-btn" type="submit">Upload Lesson</button>
       <div id="upload-lesson-message" style="margin-top:12px;"></div>
-    </form>
-  </main>
+      </form>
+    </section>
+
+    <aside style="border-left:1px solid #eee;padding-left:18px;">
+      <h3>Existing Courses</h3>
+      <div id="existing-courses" style="margin-bottom:18px;">Loading...</div>
+
+      <h3>Recently Added</h3>
+      <div id="recent-courses">Loading...</div>
+    </aside>
+    </main>
   <script>
     const API_URL = window.location.origin || 'http://localhost:3000';
     async function loadCourses(){
@@ -41,8 +79,23 @@
         if(!r.ok){ sel.innerHTML = '<option value="">Failed to load</option>'; return; }
         const data = await r.json();
         sel.innerHTML = '';
-        (data.courses||[]).forEach(c=>{
+        const courses = (data.courses||[]);
+        courses.forEach(c=>{
           const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.title + ' (' + (c.placement||'other') + ')'; sel.appendChild(opt);
+        });
+        // populate side lists
+        const existing = document.getElementById('existing-courses');
+        existing.innerHTML = '';
+        courses.forEach(c => {
+          const d = document.createElement('div');
+          d.style.padding = '6px 0';
+          d.innerHTML = `<a href="${c.url||('#/')}" target="_blank">${c.title}</a> <div style="font-size:12px;color:#666">${c.placement||'other'}</div>`;
+          existing.appendChild(d);
+        });
+        const recent = document.getElementById('recent-courses');
+        recent.innerHTML = '';
+        courses.sort((a,b)=> new Date(b.created_at||0)-new Date(a.created_at||0)).slice(0,6).forEach(c=>{
+          const d = document.createElement('div'); d.style.padding='6px 0'; d.innerHTML = `<strong>${c.title}</strong><div style="font-size:12px;color:#666">${new Date(c.created_at||0).toLocaleString()}</div>`; recent.appendChild(d);
         });
         // If URL includes ?course=<id>, preselect it
         const params = new URLSearchParams(window.location.search);
@@ -62,15 +115,64 @@
       const token = localStorage.getItem('authToken');
       if(!token){ msgEl.style.color='#c0392b'; msgEl.textContent='You must be logged in as admin.'; return; }
       try{
+        // upload image first if provided
+        let image_url = '';
+        const imgFile = document.getElementById('lesson-image').files[0];
+        if (imgFile) {
+          // Try multipart upload first
+          try {
+            const fd = new FormData(); fd.append('image', imgFile);
+            const up = await fetch(`${API_URL}/api/uploads/lessons`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd });
+            if (up.status === 501) {
+              // server suggests base64 fallback
+              const dataUrl = await readFileAsDataURL(imgFile);
+              const base = await fetch(`${API_URL}/api/uploads/lessons/base64`, { method: 'POST', headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + token }, body: JSON.stringify({ filename: imgFile.name, data: dataUrl }) });
+              if (!base.ok) { const body = await base.json().catch(()=>({})); throw new Error(body.message || 'Base64 upload failed'); }
+              const jb = await base.json(); image_url = jb.url || '';
+            } else if (up.ok) {
+              const ju = await up.json(); image_url = ju.url || '';
+            } else {
+              // try base64 fallback
+              const dataUrl = await readFileAsDataURL(imgFile);
+              const base = await fetch(`${API_URL}/api/uploads/lessons/base64`, { method: 'POST', headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + token }, body: JSON.stringify({ filename: imgFile.name, data: dataUrl }) });
+              if (!base.ok) { const body = await base.json().catch(()=>({})); throw new Error(body.message || 'Image upload failed'); }
+              const jb = await base.json(); image_url = jb.url || '';
+            }
+          } catch (ue) {
+            msgEl.style.color='#c0392b'; msgEl.textContent = 'Image upload failed: ' + (ue && ue.message ? ue.message : '');
+            return;
+          }
+        }
+        const order = Number(document.getElementById('lesson-order').value || 0);
+        const published = !!document.getElementById('lesson-published').checked;
+        const topic = document.getElementById('lesson-topic').value.trim();
+        const weeks = document.getElementById('lesson-weeks').value.trim();
+        const date = document.getElementById('lesson-date').value;
+        const other_info = document.getElementById('lesson-other').value.trim();
         const resp = await fetch(`${API_URL}/api/courses/${courseId}/lessons`,{
-          method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ title, content, resource_url })
+          method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ title, content, resource_url, order, published, topic, weeks, date, other_info, image_url })
         });
         const data = await resp.json();
         if(resp.ok){ msgEl.style.color='#2a6e62'; msgEl.textContent='Lesson uploaded.'; document.getElementById('upload-lesson-form').reset(); }
         else{ msgEl.style.color='#c0392b'; msgEl.textContent = data.message || 'Failed to upload lesson.'; }
       }catch(err){ msgEl.style.color='#c0392b'; msgEl.textContent='Network error: '+err.message; }
     });
+    // helper: read file to dataURL
+    function readFileAsDataURL(file){
+      return new Promise((resolve,reject)=>{
+        const r = new FileReader(); r.onload = ()=>resolve(r.result); r.onerror = reject; r.readAsDataURL(file);
+      });
+    }
+
     loadCourses();
+
+    // image preview
+    document.getElementById('lesson-image').addEventListener('change', async function(){
+      const p = document.getElementById('image-preview');
+      const f = this.files[0]; if(!f){ p.style.display='none'; p.innerHTML=''; return; }
+      const url = URL.createObjectURL(f);
+      p.style.display='block'; p.innerHTML = `<img src="${url}" style="max-width:100%;border-radius:6px;border:1px solid #eee"/>`;
+    });
   </script>
 </body>
 </html>
