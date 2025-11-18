@@ -45,11 +45,13 @@
         lessons.forEach(l=>{
           const div = document.createElement('div'); div.style.display='flex'; div.style.justifyContent='space-between'; div.style.alignItems='center'; div.style.padding='10px'; div.style.border='1px solid #eee'; div.style.borderRadius='6px'; div.style.marginBottom='8px';
           const left = document.createElement('div');
-          left.innerHTML = `<strong>${escapeHtml(l.title)}</strong><div style="color:#666">${(l.content||'').slice(0,200)}${(l.content||'').length>200?'...':''}</div>`;
+              let previewHtml = '';
+              if(l.image_url){ previewHtml = `<div style="margin-top:8px"><img src="${l.image_url}" style="max-height:80px;border-radius:6px;border:1px solid #eee"/></div>`; }
+              left.innerHTML = `<strong>${escapeHtml(l.title)}</strong><div style="color:#666">${(l.content||'').slice(0,200)}${(l.content||'').length>200?'...':''}</div><div style="color:#666">Topic: ${escapeHtml(l.topic||'')}</div><div style="color:#666">Weeks: ${escapeHtml(l.weeks||'')}</div><div style="color:#666">Date: ${escapeHtml(l.date||'')}</div>${previewHtml}<div style="color:#666">Order: ${l.order != null ? l.order : 'N/A'}</div><div style="color:#666">Published: ${l.published ? 'Yes' : 'No'}</div>`;
           const actions = document.createElement('div');
           // Edit button
           const editBtn = document.createElement('button'); editBtn.textContent='Edit'; editBtn.style.background='#2a6e62'; editBtn.style.color='#fff'; editBtn.style.border='none'; editBtn.style.padding='8px 10px'; editBtn.style.borderRadius='4px'; editBtn.style.marginRight='8px';
-          editBtn.addEventListener('click', ()=> openEditModal(courseId, l.id, l.title, l.content, l.resource_url));
+            editBtn.addEventListener('click', ()=> openEditModal(courseId, l.id));
           // Delete button
           const delBtn = document.createElement('button'); delBtn.textContent='Delete'; delBtn.style.background='#c0392b'; delBtn.style.color='#fff'; delBtn.style.border='none'; delBtn.style.padding='8px 10px'; delBtn.style.borderRadius='4px';
           delBtn.addEventListener('click', ()=> deleteLesson(courseId, l.id));
@@ -59,18 +61,116 @@
       }catch(e){ container.innerHTML='Network error loading lessons.'; }
     }
     // --- Edit modal (simple prompt-based) ---
-    async function openEditModal(courseId, lessonId, title, content, resource_url){
-      const newTitle = prompt('Edit lesson title:', title || '');
-      if (newTitle === null) return; // cancelled
-      const newContent = prompt('Edit lesson content:', content || '');
-      if (newContent === null) return;
-      const newResource = prompt('Edit resource URL (leave blank to clear):', resource_url || '');
-      if (newResource === null) return;
-      const token = localStorage.getItem('authToken'); const msgEl = document.getElementById('delete-lesson-message'); msgEl.textContent=''; if(!token){ msgEl.style.color='#c0392b'; msgEl.textContent='You must be logged in as admin.'; return; }
-      try{
-        const r = await fetch(`${API_URL}/api/courses/${courseId}/lessons/${lessonId}`, { method:'PUT', headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token }, body: JSON.stringify({ title: newTitle, content: newContent, resource_url: newResource }) });
-        const data = await r.json(); if(r.ok){ msgEl.style.color='#2a6e62'; msgEl.textContent='Lesson updated.'; loadLessons(); } else { msgEl.style.color='#c0392b'; msgEl.textContent = data.message || 'Failed to update lesson.'; }
-      }catch(e){ msgEl.style.color='#c0392b'; msgEl.textContent='Network error.'; }
+      // --- Edit modal (rich) ---
+      const modalHtml = `
+        <div id="edit-modal" style="display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;z-index:9999">
+          <div style="background:#fff;padding:18px;border-radius:8px;max-width:720px;width:100%">
+            <h3>Edit Lesson</h3>
+            <div id="edit-modal-msg" style="margin-bottom:8px;color:#c0392b"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label>Title</label>
+                <input id="modal-title" style="width:100%" />
+              </div>
+              <div>
+                <label>Topic</label>
+                <input id="modal-topic" style="width:100%" />
+              </div>
+              <div>
+                <label>Weeks</label>
+                <input id="modal-weeks" style="width:100%" />
+              </div>
+              <div>
+                <label>Date</label>
+                <input id="modal-date" type="date" style="width:100%" />
+              </div>
+              <div style="grid-column:1 / -1">
+                <label>Content</label>
+                <textarea id="modal-content" rows="6" style="width:100%"></textarea>
+              </div>
+              <div style="grid-column:1 / -1">
+                <label>Resource URL</label>
+                <input id="modal-resource" style="width:100%" />
+              </div>
+              <div style="grid-column:1 / -1">
+                <label>Other info</label>
+                <input id="modal-other" style="width:100%" />
+              </div>
+              <div>
+                <label>Order</label>
+                <input id="modal-order" type="number" style="width:100%" />
+              </div>
+              <div style="display:flex;align-items:center">
+                <label style="display:flex;align-items:center"><input id="modal-published" type="checkbox" style="margin-right:8px" /> Published</label>
+              </div>
+              <div style="grid-column:1 / -1">
+                <label>Image</label>
+                <div style="display:flex;gap:10px;align-items:center">
+                  <input id="modal-image" type="file" accept="image/*" />
+                  <img id="modal-image-preview" src="" style="max-height:80px;border-radius:6px;display:none;border:1px solid #eee" />
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:12px;text-align:right">
+              <button id="modal-cancel" style="margin-right:8px">Cancel</button>
+              <button id="modal-save" style="background:#2a6e62;color:#fff;border:none;padding:8px 12px;border-radius:6px">Save</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+      async function openEditModal(courseId, lessonId){
+        const modal = document.getElementById('edit-modal');
+        const msgEl = document.getElementById('edit-modal-msg'); msgEl.textContent='';
+        modal.style.display = 'flex';
+        // fetch lesson details (admin token required)
+        const token = localStorage.getItem('authToken'); if(!token){ msgEl.textContent='Admin login required.'; return; }
+        try{
+          const r = await fetch(`${API_URL}/api/courses/${courseId}/lessons`, { headers: { 'Authorization': 'Bearer '+token } });
+          if(!r.ok){ msgEl.textContent='Failed to load lesson details.'; return; }
+          const data = await r.json(); const lesson = (data.lessons||[]).find(x=>x.id===lessonId);
+          if(!lesson){ msgEl.textContent='Lesson not found.'; return; }
+          document.getElementById('modal-title').value = lesson.title || '';
+          document.getElementById('modal-content').value = lesson.content || '';
+          document.getElementById('modal-resource').value = lesson.resource_url || '';
+          document.getElementById('modal-topic').value = lesson.topic || '';
+          document.getElementById('modal-weeks').value = lesson.weeks || '';
+          document.getElementById('modal-date').value = lesson.date || '';
+          document.getElementById('modal-other').value = lesson.other_info || '';
+          document.getElementById('modal-order').value = lesson.order != null ? lesson.order : 0;
+          document.getElementById('modal-published').checked = lesson.published === true;
+          const imgPrev = document.getElementById('modal-image-preview');
+          if(lesson.image_url){ imgPrev.src = lesson.image_url; imgPrev.style.display='inline-block'; } else { imgPrev.style.display='none'; imgPrev.src=''; }
+
+          // cancel/save handlers
+          document.getElementById('modal-cancel').onclick = ()=> { modal.style.display='none'; };
+          document.getElementById('modal-save').onclick = async ()=>{
+            msgEl.textContent='';
+            const newTitle = document.getElementById('modal-title').value.trim();
+            const newContent = document.getElementById('modal-content').value.trim();
+            const newResource = document.getElementById('modal-resource').value.trim();
+            const topic = document.getElementById('modal-topic').value.trim();
+            const weeks = document.getElementById('modal-weeks').value.trim();
+            const date = document.getElementById('modal-date').value;
+            const other_info = document.getElementById('modal-other').value.trim();
+            const order = Number(document.getElementById('modal-order').value || 0);
+            const published = !!document.getElementById('modal-published').checked;
+            // handle image upload if new file selected
+            const file = document.getElementById('modal-image').files[0];
+            let image_url = lesson.image_url || '';
+            if(file){
+              const fd = new FormData(); fd.append('image', file);
+              const up = await fetch(`${API_URL}/api/uploads/lessons`, { method:'POST', headers: { 'Authorization': 'Bearer '+token }, body: fd });
+              if(!up.ok){ msgEl.textContent='Image upload failed.'; return; }
+              const ju = await up.json(); image_url = ju.url || image_url;
+            }
+            try{
+              const r2 = await fetch(`${API_URL}/api/courses/${courseId}/lessons/${lessonId}`, { method:'PUT', headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token }, body: JSON.stringify({ title:newTitle, content:newContent, resource_url:newResource, topic, weeks, date, other_info, order, published, image_url }) });
+              const resJson = await r2.json(); if(r2.ok){ document.getElementById('delete-lesson-message').style.color='#2a6e62'; document.getElementById('delete-lesson-message').textContent='Lesson updated.'; modal.style.display='none'; loadLessons(); } else { msgEl.textContent = resJson.message || 'Failed to update lesson.'; }
+            }catch(e){ msgEl.textContent='Network error saving lesson.'; }
+          };
+        }catch(e){ msgEl.textContent='Network error.'; }
     }
     async function deleteLesson(courseId, lessonId){ if(!confirm('Delete this lesson?')) return; const msgEl = document.getElementById('delete-lesson-message'); msgEl.textContent=''; const token = localStorage.getItem('authToken'); if(!token){ msgEl.style.color='#c0392b'; msgEl.textContent='You must be logged in as admin.'; return; }
       try{

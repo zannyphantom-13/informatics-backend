@@ -1,4 +1,12 @@
-# Environment variables (contains secrets)
+## Ignore user uploads and runtime artifacts
+/Tii/uploads/
+.DS_Store
+node_modules/
+env/
+/.env
+npm-debug.log
+dist/
+coverage/# Environment variables (contains secrets)
 .env
 .env.local
 .env.*.local
