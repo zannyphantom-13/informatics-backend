@@ -24,7 +24,7 @@
       sel.innerHTML = '<option>Loading...</option>';
       try{
         const r = await fetch(API_URL + '/api/courses');
-        const data = await r.json(); sel.innerHTML=''; (data.courses||[]).forEach(c=>{ const opt = document.createElement('option'); opt.value=c.id; opt.textContent=c.title; sel.appendChild(opt); });
+        const data = await r.json(); sel.innerHTML=''; (data.courses||[]).forEach(c=>{ const opt = document.createElement('option'); opt.value = String(c.id || ''); opt.textContent = c.title || c.id || 'Untitled'; sel.appendChild(opt); });
         // If URL includes ?course=<id>, preselect it
         const params = new URLSearchParams(window.location.search);
         const pre = params.get('course');
@@ -35,7 +35,9 @@
       }catch(e){ sel.innerHTML = '<option>Failed</option>'; }
     }
     async function loadLessons(){
-      const courseId = document.getElementById('course-select-delete').value; const container = document.getElementById('lessons-container'); container.innerHTML='Loading...';
+        const courseId = String(document.getElementById('course-select-delete').value || ''); const container = document.getElementById('lessons-container');
+      if (!courseId || courseId === 'undefined') { container.innerHTML = '<p style="color:#c0392b">Please select a valid course.</p>'; return; }
+      container.innerHTML='Loading...';
       try{
         const r = await fetch(`${API_URL}/api/courses/${courseId}/lessons`);
         if(!r.ok){ container.innerHTML='Failed to load lessons.'; return; }

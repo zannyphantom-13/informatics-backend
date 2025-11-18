@@ -99,7 +99,10 @@
 
         sel.innerHTML = '';
         courses.forEach(c=>{
-          const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.title + ' (' + (c.placement||'other') + ')'; sel.appendChild(opt);
+          const opt = document.createElement('option');
+          opt.value = String(c.id || ''); // ensure value is always a string
+          opt.textContent = (c.title || c.id || 'Untitled') + ' (' + (c.placement||'other') + ')';
+          sel.appendChild(opt);
         });
 
         // populate side lists
@@ -131,7 +134,8 @@
     document.getElementById('upload-lesson-form').addEventListener('submit', async (e)=>{
       e.preventDefault();
       const msgEl = document.getElementById('upload-lesson-message'); msgEl.textContent = '';
-      const courseId = document.getElementById('course-select').value;
+      const courseId = String(document.getElementById('course-select').value || '');
+      if (!courseId || courseId === 'undefined') { msgEl.style.color='#c0392b'; msgEl.textContent='Please select a valid course.'; return; }
       const title = document.getElementById('lesson-title').value.trim();
       const content = document.getElementById('lesson-content').value.trim();
       const resource_url = document.getElementById('resource-url').value.trim();
