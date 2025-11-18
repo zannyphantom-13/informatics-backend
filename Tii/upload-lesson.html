@@ -184,8 +184,22 @@
           method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ title, content, resource_url, order, published, topic, weeks, date, other_info, image_url })
         });
         const data = await resp.json();
-        if(resp.ok){ msgEl.style.color='#2a6e62'; msgEl.textContent='Lesson uploaded.'; document.getElementById('upload-lesson-form').reset(); }
-        else{ msgEl.style.color='#c0392b'; msgEl.textContent = data.message || 'Failed to upload lesson.'; }
+        if(resp.ok){ 
+          msgEl.style.color='#2a6e62'; msgEl.textContent='Lesson uploaded.'; 
+          document.getElementById('upload-lesson-form').reset();
+          // show a link to the course page so admins can verify the new lesson
+          const container = document.getElementById('upload-lesson-message');
+          container.innerHTML = '';
+          const courseUrl = `/Tii/courses/${courseId}.html`;
+          const link = document.createElement('a');
+          link.href = courseUrl; link.target = '_blank'; link.textContent = 'View course page';
+          link.className = 'explore-btn'; link.style.display = 'inline-block'; link.style.marginRight = '12px';
+          container.appendChild(link);
+          const openBtn = document.createElement('button');
+          openBtn.textContent = 'Open now'; openBtn.className = 'submit-btn'; openBtn.style.marginLeft='6px';
+          openBtn.addEventListener('click', ()=> window.open(courseUrl, '_blank'));
+          container.appendChild(openBtn);
+        } else{ msgEl.style.color='#c0392b'; msgEl.textContent = data.message || 'Failed to upload lesson.'; }
       }catch(err){ msgEl.style.color='#c0392b'; msgEl.textContent='Network error: '+err.message; }
     });
     // helper: read file to dataURL
