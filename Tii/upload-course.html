@@ -22,10 +22,7 @@
                 <label for="description">Description</label>
                 <textarea id="description" name="description" rows="5" required></textarea>
             </div>
-            <div class="form-group">
-                <label for="url">Course Link (optional)</label>
-                <input id="url" name="url" placeholder="https://..." />
-            </div>
+            <!-- URL removed: server will generate a local course page automatically -->
             <div class="form-group">
                 <label for="placement">Display As</label>
                 <select id="placement" name="placement">
@@ -47,7 +44,7 @@
         e.preventDefault();
         const title = document.getElementById('title').value.trim();
         const description = document.getElementById('description').value.trim();
-        const url = document.getElementById('url').value.trim();
+        // no url field — server will generate a local course page automatically
         const msgEl = document.getElementById('upload-course-message');
         msgEl.textContent = '';
 
@@ -61,7 +58,7 @@
             const resp = await fetch(`${API_URL}/api/courses`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ title, description, url, placement })
+                body: JSON.stringify({ title, description, placement })
             });
             const result = await resp.json();
             console.log('Response status:', resp.status, 'Body:', result);
