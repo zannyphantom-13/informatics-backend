@@ -75,27 +75,50 @@
       const sel = document.getElementById('course-select');
       sel.innerHTML = '<option>Loading...</option>';
       try{
+        // built-in static courses (ensure admins can add lessons to these)
+        const builtin = [
+          { id: 'chemistry', title: 'Computational Chemistry', placement: 'curriculum' },
+          { id: 'bioinformatics', title: 'Bioinformatics', placement: 'curriculum' },
+          { id: 'programming', title: 'Programming', placement: 'curriculum' },
+          { id: 'data-analysis', title: 'Data Analysis', placement: 'curriculum' },
+          { id: 'drug-discovery', title: 'Drug Discovery', placement: 'curriculum' }
+        ];
+
         const r = await fetch(API_URL + '/api/courses');
-        if(!r.ok){ sel.innerHTML = '<option value="">Failed to load</option>'; return; }
-        const data = await r.json();
+        let courses = [];
+        if (!r.ok) {
+          // if API fails, still populate builtins
+          courses = builtin.slice();
+        } else {
+          const data = await r.json();
+          courses = (data.courses||[]);
+          // merge builtins if not present in DB (avoid duplicates by id)
+          const ids = new Set(courses.map(c => c.id));
+          builtin.forEach(b => { if (!ids.has(b.id)) courses.push(b); });
+        }
+
         sel.innerHTML = '';
-        const courses = (data.courses||[]);
         courses.forEach(c=>{
           const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.title + ' (' + (c.placement||'other') + ')'; sel.appendChild(opt);
         });
+
         // populate side lists
         const existing = document.getElementById('existing-courses');
         existing.innerHTML = '';
         courses.forEach(c => {
           const d = document.createElement('div');
           d.style.padding = '6px 0';
-          d.innerHTML = `<a href="${c.url||('#/')}" target="_blank">${c.title}</a> <div style="font-size:12px;color:#666">${c.placement||'other'}</div>`;
+          // prefer course page under courses/ if present (builtins use this pattern)
+          const href = c.url && c.url.length ? c.url : `courses/${c.id}.html`;
+          d.innerHTML = `<a href="${href}" target="_blank">${c.title}</a> <div style="font-size:12px;color:#666">${c.placement||'other'}</div>`;
           existing.appendChild(d);
         });
+
         const recent = document.getElementById('recent-courses');
         recent.innerHTML = '';
         courses.sort((a,b)=> new Date(b.created_at||0)-new Date(a.created_at||0)).slice(0,6).forEach(c=>{
-          const d = document.createElement('div'); d.style.padding='6px 0'; d.innerHTML = `<strong>${c.title}</strong><div style="font-size:12px;color:#666">${new Date(c.created_at||0).toLocaleString()}</div>`; recent.appendChild(d);
+          const created = c.created_at ? new Date(c.created_at).toLocaleString() : '';
+          const d = document.createElement('div'); d.style.padding='6px 0'; d.innerHTML = `<strong>${c.title}</strong><div style="font-size:12px;color:#666">${created}</div>`; recent.appendChild(d);
         });
         // If URL includes ?course=<id>, preselect it
         const params = new URLSearchParams(window.location.search);
